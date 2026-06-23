@@ -1,65 +1,115 @@
-# SimPol - Complexity72H 2026
+# Project Name
 
-Short description of the project.
+Short description of the repository.
 
-## Repository Structure
+---
 
-```
+# Repository Structure
+
+```text
 .
 ├── abm/
-│   └── __init__.py
+│   ├── __init__.py
+│   └── ...
 ├── inference/
-│   └── __init__.py
-├── .gitignore
+│   ├── __init__.py
+│   └── ...
+├── requirements/
+│   ├── abm.txt
+│   ├── inference.txt
+│   └── dev.txt
 ├── README.md
-└── requirements.txt
+└── .gitignore
 ```
 
-- `abm/` — agent-based modeling code.
-- `inference/` — inference, prediction, or model-serving code.
+This repository contains two largely independent codebases:
 
-## Requirements
+* **Inference Team** (`inference/`)
+* **ABM Team** (`abm/`)
 
-- Python 3.11+ (or your preferred version)
-- `venv` (included with Python)
+Each team maintains its own dependencies while sharing the same repository.
 
-## Creating a Virtual Environment
+---
+
+# Python Environment Setup
+
+Create a virtual environment at the repository root:
+
+```bash
+python -m venv .venv
+```
+
+Activate it:
 
 ### Linux / macOS
 
 ```bash
-python3 -m venv .venv
 source .venv/bin/activate
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-After activation, upgrade pip:
+Upgrade pip:
 
 ```bash
 pip install --upgrade pip
 ```
 
-## Installing Dependencies
+---
 
-If a `requirements.txt` file exists:
+# ABM Team
 
-```bash
-pip install -r requirements.txt
+The ABM team develops and maintains the code in:
+
+```text
+abm/
 ```
 
-To create or update dependencies:
+## Install ABM Dependencies
 
 ```bash
-pip freeze > requirements.txt
+pip install -r requirements/abm.txt
 ```
 
-## Running Code
+## Run ABM Code
+
+Example:
+
+```bash
+python abm/abm.py
+```
+
+## Updating Dependencies
+
+After adding or upgrading packages:
+
+```bash
+pip freeze > requirements/abm.txt
+```
+
+Only include dependencies required by the ABM codebase.
+
+---
+
+# Inference Team
+
+The Inference team develops and maintains the code in:
+
+```text
+inference/
+```
+
+## Install Inference Dependencies
+
+```bash
+pip install -r requirements/inference.txt
+```
+
+## Run Inference Code
 
 Example:
 
@@ -67,47 +117,41 @@ Example:
 python inference/inference.py
 ```
 
-or
+## Updating Dependencies
+
+After adding or upgrading packages:
 
 ```bash
-python abm/abm.py
+pip freeze > requirements/inference.txt
 ```
 
-## Recommended Development Workflow
+Only include dependencies required by the inference codebase.
 
-Create and activate the virtual environment:
+---
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
+# Working Across Both Teams
 
-Install dependencies:
+If you need both environments:
 
-```bash
-pip install -r requirements/inference.txt
-```
-or
 ```bash
 pip install -r requirements/abm.txt
+pip install -r requirements/inference.txt
+pip install -r requirements/dev.txt
 ```
 
-When adding a new dependency:
+---
 
-```bash
-pip install package-name
-pip freeze > requirements/inference.txt # or pip freeze > requirements/abm.txt
-```
+# Deactivating the Environment
 
-Deactivate the environment when finished:
+When finished:
 
 ```bash
 deactivate
 ```
 
-## Git Ignore
+---
 
-The repository should ignore virtual environments, caches, and build artifacts:
+# .gitignore
 
 ```gitignore
 .venv/
