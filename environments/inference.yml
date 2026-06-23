@@ -2,7 +2,7 @@ name: complexity72-simpol
 channels:
   - conda-forge
 dependencies:
-  - python=3.14
+  - python=3.12
   - graph-tool
   - seaborn
   - matplotlib
