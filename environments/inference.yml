@@ -1,10 +1,9 @@
 name: complexity72-simpol
 channels:
-  - defaults
+  - conda-forge
 dependencies:
   - python=3.14
   - graph-tool
   - seaborn
   - matplotlib
   - networkx
-prefix: /opt/homebrew/Caskroom/miniconda/base/envs/complexity72-simpol
