@@ -43,3 +43,6 @@ htmlcov/
 Thumbs.db
 .vscode/
 .idea/
+
+# Claude Code
+.claude/
