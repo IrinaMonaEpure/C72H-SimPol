@@ -1,152 +1,188 @@
 # Project Name
 
-Short description of the repository.
+Short description of the project.
 
 ---
 
-# Repository Structure
+## Repository Structure
 
 ```text
 .
 ├── abm/
-│   ├── __init__.py
 │   └── ...
 ├── inference/
-│   ├── __init__.py
 │   └── ...
-├── requirements/
-│   ├── abm.txt
-│   ├── inference.txt
-│   └── dev.txt
+├── environments/
+│   ├── abm.yml
+│   ├── inference.yml
 ├── README.md
 └── .gitignore
 ```
 
-This repository contains two largely independent codebases:
+This repository contains two independent workstreams:
 
-* **Inference Team** (`inference/`)
 * **ABM Team** (`abm/`)
+* **Inference Team** (`inference/`)
 
-Each team maintains its own dependencies while sharing the same repository.
-
----
-
-# Python Environment Setup
-
-Create a virtual environment at the repository root:
-
-```bash
-python -m venv .venv
-```
-
-Activate it:
-
-### Linux / macOS
-
-```bash
-source .venv/bin/activate
-```
-
-### Windows (PowerShell)
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Upgrade pip:
-
-```bash
-pip install --upgrade pip
-```
+Each team maintains its own Conda environment.
 
 ---
 
-# ABM Team
+# Prerequisites
 
-The ABM team develops and maintains the code in:
+Install either:
 
-```text
-abm/
-```
-
-## Install ABM Dependencies
-
-```bash
-pip install -r requirements/abm.txt
-```
-
-## Run ABM Code
-
-Example:
-
-```bash
-python abm/abm.py
-```
-
-## Updating Dependencies
-
-After adding or upgrading packages:
-
-```bash
-pip freeze > requirements/abm.txt
-```
-
-Only include dependencies required by the ABM codebase.
+* Miniconda
+* Anaconda
 
 ---
 
 # Inference Team
 
-The Inference team develops and maintains the code in:
+Code owned by the Inference team lives in:
 
 ```text
 inference/
 ```
 
-## Install Inference Dependencies
+## Create the Environment
 
 ```bash
-pip install -r requirements/inference.txt
+conda env create -f environments/inference.yml
+```
+
+## Activate the Environment
+
+```bash
+conda activate inference
 ```
 
 ## Run Inference Code
 
-Example:
-
 ```bash
-python inference/inference.py
+python inference/main.py
 ```
 
-## Updating Dependencies
+## Update Dependencies
 
-After adding or upgrading packages:
+After installing new packages:
 
 ```bash
-pip freeze > requirements/inference.txt
+conda env export --from-history > environments/inference.yml
 ```
 
-Only include dependencies required by the inference codebase.
+Only include packages required by the inference codebase.
 
 ---
 
-# Working Across Both Teams
+# ABM Team
 
-If you need both environments:
+Code owned by the ABM team lives in:
+
+```text
+abm/
+```
+
+## Create the Environment
 
 ```bash
-pip install -r requirements/abm.txt
-pip install -r requirements/inference.txt
-pip install -r requirements/dev.txt
+conda env create -f environments/abm.yml
+```
+
+## Activate the Environment
+
+```bash
+conda activate abm
+```
+
+## Run ABM Code
+
+```bash
+python abm/main.py
+```
+
+## Update Dependencies
+
+After installing new packages:
+
+```bash
+conda env export --from-history > environments/abm.yml
+```
+
+Only include packages required by the ABM codebase.
+
+---
+
+# Working Across Teams
+
+If you contribute to both teams, switch environments as needed:
+
+```bash
+conda activate abm
+```
+
+or
+
+```bash
+conda activate inference
+```
+
+Each environment remains isolated, preventing dependency conflicts between the ABM and inference codebases.
+
+---
+
+# Updating an Existing Environment
+
+After modifying an environment file:
+
+```bash
+conda env update -f environments/abm.yml --prune
+```
+
+or
+
+```bash
+conda env update -f environments/inference.yml --prune
 ```
 
 ---
 
-# Deactivating the Environment
-
-When finished:
+# Deactivate the Environment
 
 ```bash
-deactivate
+conda deactivate
+```
+
+---
+
+# Example Environment File
+
+`environments/abm.yml`
+
+```yaml
+name: abm
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas
+  - matplotlib
+```
+
+`environments/inference.yml`
+
+```yaml
+name: inference
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - pytorch
+  - transformers
+  - pip
 ```
 
 ---
@@ -154,16 +190,19 @@ deactivate
 # .gitignore
 
 ```gitignore
-.venv/
 __pycache__/
 *.pyc
-.pytest_cache/
-.mypy_cache/
-.coverage
-dist/
-build/
-*.egg-info/
+.ipynb_checkpoints/
+
+.env
+.venv/
+
 .idea/
 .vscode/
+
+build/
+dist/
+*.egg-info/
+
 .DS_Store
 ```
