@@ -200,6 +200,33 @@ class BeliefNetwork:
         ax.set_title(title, fontsize=11)
         return ax
 
+    def save(self, path):
+        """Save the inferred network to a file (GraphML or GT format).
+
+        Node property 'belief' stores the belief dimension name.
+        Edge property 'weight' stores the inferred edge weight.
+
+        Parameters
+        ----------
+        path : str
+            Output file path. Format is inferred from extension
+            (.graphml, .xml, or .gt).
+        """
+        self._check_fitted()
+        g = self.graph.copy()
+
+        vlabel = g.new_vp("string")
+        for v in g.vertices():
+            vlabel[v] = self.columns[int(v)]
+        g.vp["belief"] = vlabel
+
+        eweight = g.new_ep("double")
+        for e in g.edges():
+            eweight[e] = self.weights[e]
+        g.ep["weight"] = eweight
+
+        g.save(path)
+
     def _prepare_data(self, df):
         """Mean-impute and transpose to (N_nodes, M_samples)."""
         data = df[self.columns].copy()
