@@ -1032,7 +1032,7 @@ cdef double _pressure_joint_sparse_c(
     return beta_internal * h_internal + beta_social * h_social
 
 
-cdef double _pressure_topic_dense_c(
+cdef double _delta_pressure_topic_dense_c(
     int agent_idx,
     double[:, ::1] beliefs,
     double[:, ::1] belief_weights,
@@ -1046,22 +1046,29 @@ cdef double _pressure_topic_dense_c(
 ) noexcept nogil:
     cdef int n_agents = beliefs.shape[0]
     cdef int n_beliefs = beliefs.shape[1]
-    cdef int a
-    cdef int b
+    cdef int j
     cdef int neighbor
-    cdef double h_internal = 0.0
-    cdef double h_social = 0.0
-    cdef double value_a
-    cdef double value_b
+    cdef double current_value = beliefs[agent_idx, topic_idx]
+    cdef double delta_value = candidate_value - current_value
+    cdef double delta_internal = 0.0
+    cdef double delta_social = 0.0
     cdef double neighbor_signal = 0.0
     cdef double denom = 0.0
     cdef double weight
 
-    for a in range(n_beliefs):
-        value_a = _agent_belief_value(beliefs, agent_idx, a, topic_idx, candidate_value)
-        for b in range(n_beliefs):
-            value_b = _agent_belief_value(beliefs, agent_idx, b, topic_idx, candidate_value)
-            h_internal -= belief_weights[a, b] * value_a * value_b
+    if delta_value == 0.0:
+        return 0.0
+
+    for j in range(n_beliefs):
+        if j != topic_idx:
+            delta_internal -= (
+                delta_value
+                * (belief_weights[topic_idx, j] + belief_weights[j, topic_idx])
+                * beliefs[agent_idx, j]
+            )
+    delta_internal -= belief_weights[topic_idx, topic_idx] * (
+        candidate_value * candidate_value - current_value * current_value
+    )
 
     if include_social:
         if normalize_neighbor_influence:
@@ -1079,12 +1086,12 @@ cdef double _pressure_topic_dense_c(
             weight = agent_adjacency[agent_idx, neighbor]
             if weight != 0.0:
                 neighbor_signal += weight * beliefs[neighbor, topic_idx]
-        h_social -= candidate_value * (neighbor_signal / denom)
+        delta_social -= delta_value * (neighbor_signal / denom)
 
-    return beta_internal * h_internal + beta_social * h_social
+    return beta_internal * delta_internal + beta_social * delta_social
 
 
-cdef double _pressure_topic_sparse_c(
+cdef double _delta_pressure_topic_sparse_c(
     int agent_idx,
     double[:, ::1] beliefs,
     double[:, ::1] belief_weights,
@@ -1099,25 +1106,32 @@ cdef double _pressure_topic_sparse_c(
     bint normalize_neighbor_influence,
 ) noexcept nogil:
     cdef int n_beliefs = beliefs.shape[1]
-    cdef int a
-    cdef int b
+    cdef int j
     cdef int p
     cdef int neighbor
     cdef int row_start = indptr[agent_idx]
     cdef int row_end = indptr[agent_idx + 1]
-    cdef double h_internal = 0.0
-    cdef double h_social = 0.0
-    cdef double value_a
-    cdef double value_b
+    cdef double current_value = beliefs[agent_idx, topic_idx]
+    cdef double delta_value = candidate_value - current_value
+    cdef double delta_internal = 0.0
+    cdef double delta_social = 0.0
     cdef double neighbor_signal = 0.0
     cdef double denom = 0.0
     cdef double weight
 
-    for a in range(n_beliefs):
-        value_a = _agent_belief_value(beliefs, agent_idx, a, topic_idx, candidate_value)
-        for b in range(n_beliefs):
-            value_b = _agent_belief_value(beliefs, agent_idx, b, topic_idx, candidate_value)
-            h_internal -= belief_weights[a, b] * value_a * value_b
+    if delta_value == 0.0:
+        return 0.0
+
+    for j in range(n_beliefs):
+        if j != topic_idx:
+            delta_internal -= (
+                delta_value
+                * (belief_weights[topic_idx, j] + belief_weights[j, topic_idx])
+                * beliefs[agent_idx, j]
+            )
+    delta_internal -= belief_weights[topic_idx, topic_idx] * (
+        candidate_value * candidate_value - current_value * current_value
+    )
 
     if include_social:
         if normalize_neighbor_influence:
@@ -1136,9 +1150,9 @@ cdef double _pressure_topic_sparse_c(
                 continue
             weight = edge_data[p]
             neighbor_signal += weight * beliefs[neighbor, topic_idx]
-        h_social -= candidate_value * (neighbor_signal / denom)
+        delta_social -= delta_value * (neighbor_signal / denom)
 
-    return beta_internal * h_internal + beta_social * h_social
+    return beta_internal * delta_internal + beta_social * delta_social
 
 
 cdef double _pressure_fast_c(
@@ -1317,8 +1331,7 @@ def run_exchange_fast(
     cdef int combo_tmp
     cdef int chosen_combo_id
     cdef int value_pos
-    cdef double current_pressure
-    cdef double candidate_pressure
+    cdef double delta_pressure
     cdef double candidate_value
     cdef double total_weight
     cdef double draw
@@ -1397,23 +1410,10 @@ def run_exchange_fast(
             topic_is_focal = focal_mask_view[topic_idx] != 0
             candidate_count = counts_view[topic_idx]
 
-            current_pressure = _pressure_topic_dense_c(
-                agent_idx,
-                beliefs_view,
-                weights_view,
-                adjacency_view,
-                topic_idx,
-                beliefs_view[agent_idx, topic_idx],
-                beta_internal,
-                beta_social,
-                topic_is_focal,
-                normalize,
-            )
-
             total_weight = 0.0
             for candidate_pos in range(candidate_count):
                 candidate_value = allowed_view[topic_idx, candidate_pos]
-                candidate_pressure = _pressure_topic_dense_c(
+                delta_pressure = _delta_pressure_topic_dense_c(
                     agent_idx,
                     beliefs_view,
                     weights_view,
@@ -1425,7 +1425,7 @@ def run_exchange_fast(
                     topic_is_focal,
                     normalize,
                 )
-                probs_view[candidate_pos] = _logistic_weight_c(candidate_pressure - current_pressure)
+                probs_view[candidate_pos] = _logistic_weight_c(delta_pressure)
                 total_weight += probs_view[candidate_pos]
 
             if total_weight <= 0.0 or not isfinite(total_weight):
@@ -1533,8 +1533,7 @@ def run_exchange_fast_sparse(
     cdef int combo_tmp
     cdef int chosen_combo_id
     cdef int value_pos
-    cdef double current_pressure
-    cdef double candidate_pressure
+    cdef double delta_pressure
     cdef double candidate_value
     cdef double total_weight
     cdef double draw
@@ -1619,25 +1618,10 @@ def run_exchange_fast_sparse(
             topic_is_focal = focal_mask_view[topic_idx] != 0
             candidate_count = counts_view[topic_idx]
 
-            current_pressure = _pressure_topic_sparse_c(
-                agent_idx,
-                beliefs_view,
-                weights_view,
-                indptr_view,
-                indices_view,
-                data_view,
-                topic_idx,
-                beliefs_view[agent_idx, topic_idx],
-                beta_internal,
-                beta_social,
-                topic_is_focal,
-                normalize,
-            )
-
             total_weight = 0.0
             for candidate_pos in range(candidate_count):
                 candidate_value = allowed_view[topic_idx, candidate_pos]
-                candidate_pressure = _pressure_topic_sparse_c(
+                delta_pressure = _delta_pressure_topic_sparse_c(
                     agent_idx,
                     beliefs_view,
                     weights_view,
@@ -1651,7 +1635,7 @@ def run_exchange_fast_sparse(
                     topic_is_focal,
                     normalize,
                 )
-                probs_view[candidate_pos] = _logistic_weight_c(candidate_pressure - current_pressure)
+                probs_view[candidate_pos] = _logistic_weight_c(delta_pressure)
                 total_weight += probs_view[candidate_pos]
 
             if total_weight <= 0.0 or not isfinite(total_weight):
