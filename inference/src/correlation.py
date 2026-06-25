@@ -6,38 +6,24 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
 
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.covariance import GraphicalLassoCV
 
-def retrieve_group(
-    csv_path,
-    filters=None,
-):
-    """
-    Load the dataset and return the filtered respondents.
 
-    filters example:
-    {
-        "age": {"range": [15, 34]},
-        "country": {"value": "GB"}
-    }
-    """
-
+def retrieve_group(csv_path, filters=None):
     df = pd.read_csv(csv_path)
 
     if filters is None:
         filters = {}
 
     for column, condition in filters.items():
-
         if "value" in condition:
             df = df[df[column] == condition["value"]]
 
         if "range" in condition:
             low, high = condition["range"]
-
-            df = df[
-                (df[column] >= low)
-                & (df[column] <= high)
-            ]
+            df = df[(df[column] >= low) & (df[column] <= high)]
 
     return df
 
@@ -49,63 +35,110 @@ def generate_correlation_matrix(
     question_cols=None,
     method="kendall",
 ):
-    """
-    Compute a correlation matrix from a dataframe.
-    """
-
     if question_cols is not None:
         X = df[question_cols]
-
     else:
-        X = df.iloc[
-            :,
-            question_start_col:question_end_col
-        ]
+        X = df.iloc[:, question_start_col:question_end_col]
 
-    X = X.apply(
-        pd.to_numeric,
-        errors="coerce"
-    )
-
+    X = X.apply(pd.to_numeric, errors="coerce")
     X = X.dropna()
 
-    corr = X.corr(method=method)
-
-    return corr
+    return X.corr(method=method)
 
 
-import numpy as np
-import pandas as pd
-
-
-def threshold_signed_adjacency(
-    A,
-    top_percent=20,
-    keep_diagonal=False,
+def generate_partial_correlation_matrix(
+    df,
+    question_start_col=None,
+    question_end_col=None,
+    question_cols=None,
+    impute_strategy="median",
 ):
-    """
-    Keep the strongest positive and strongest negative edges separately.
+    if question_cols is not None:
+        X = df[question_cols]
+    else:
+        X = df.iloc[:, question_start_col:question_end_col]
 
-    Parameters
-    ----------
-    A : pandas.DataFrame or numpy.ndarray
-        Symmetric adjacency matrix.
-    top_percent : float
-        Percentage of positive and negative edges to keep.
-    keep_diagonal : bool
-        Whether to keep the diagonal.
+    X = X.apply(pd.to_numeric, errors="coerce")
 
-    Returns
-    -------
-    A_thr : pandas.DataFrame
-        Thresholded adjacency matrix.
-    pos_threshold : float
-        Positive cutoff.
-    neg_threshold : float
-        Negative cutoff.
-    """
+    imputer = SimpleImputer(strategy=impute_strategy)
+    X_imputed = imputer.fit_transform(X)
 
-    # Preserve labels if present
+    X_scaled = StandardScaler().fit_transform(X_imputed)
+
+    model = GraphicalLassoCV()
+    model.fit(X_scaled)
+
+    precision = model.precision_
+
+    partial_corr = -precision / np.sqrt(
+        np.outer(np.diag(precision), np.diag(precision))
+    )
+
+    np.fill_diagonal(partial_corr, 0)
+
+    return pd.DataFrame(
+        partial_corr,
+        index=X.columns,
+        columns=X.columns,
+    )
+
+
+def save_correlation_matrix(matrix, output_path):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    suffix = output_path.suffix.lower()
+
+    if suffix == ".csv":
+        matrix.to_csv(output_path)
+    elif suffix == ".parquet":
+        matrix.to_parquet(output_path)
+    elif suffix in [".pkl", ".pickle"]:
+        matrix.to_pickle(output_path)
+    elif suffix == ".npy":
+        np.save(output_path, matrix.to_numpy())
+    else:
+        raise ValueError(
+            "Unsupported file format. Use .csv, .parquet, .pkl, or .npy"
+        )
+
+
+def extract_off_diagonal_values(matrix):
+    A = matrix.to_numpy()
+
+    mask = np.triu(
+        np.ones_like(A, dtype=bool),
+        k=1,
+    )
+
+    values = A[mask]
+    values = values[~np.isnan(values)]
+
+    return values
+
+
+def compute_distribution_limits(
+    matrices,
+    bins=40,
+    xlim=(-1, 1),
+):
+    ymax = 0
+
+    for matrix in matrices:
+        values = extract_off_diagonal_values(matrix)
+
+        counts, _ = np.histogram(
+            values,
+            bins=bins,
+            range=xlim,
+        )
+
+        if len(counts) > 0:
+            ymax = max(ymax, counts.max())
+
+    return xlim, (0, ymax * 1.1)
+
+def threshold_signed_adjacency(A, top_percent=20, keep_diagonal=False):
     if isinstance(A, pd.DataFrame):
         index = A.index
         columns = A.columns
@@ -122,15 +155,9 @@ def threshold_signed_adjacency(
         raise ValueError("A must be symmetric.")
 
     if not (0 < top_percent <= 100):
-        raise ValueError(
-            "top_percent must be between 0 and 100."
-        )
+        raise ValueError("top_percent must be between 0 and 100.")
 
-    upper_mask = np.triu(
-        np.ones_like(A, dtype=bool),
-        k=1,
-    )
-
+    upper_mask = np.triu(np.ones_like(A, dtype=bool), k=1)
     edge_values = A[upper_mask]
 
     positive_edges = edge_values[edge_values > 0]
@@ -141,26 +168,14 @@ def threshold_signed_adjacency(
     pos_threshold = None
     neg_threshold = None
 
-    # Positive edges
     if len(positive_edges) > 0:
-        pos_threshold = np.percentile(
-            positive_edges,
-            100 - top_percent,
-        )
-
+        pos_threshold = np.percentile(positive_edges, 100 - top_percent)
         pos_keep = (A >= pos_threshold) & (A > 0)
-
         A_thr[pos_keep] = A[pos_keep]
 
-    # Negative edges
     if len(negative_edges) > 0:
-        neg_threshold = np.percentile(
-            negative_edges,
-            top_percent,
-        )
-
+        neg_threshold = np.percentile(negative_edges, top_percent)
         neg_keep = (A <= neg_threshold) & (A < 0)
-
         A_thr[neg_keep] = A[neg_keep]
 
     if not keep_diagonal:
@@ -169,7 +184,6 @@ def threshold_signed_adjacency(
     A_thr = np.triu(A_thr, 1)
     A_thr = A_thr + A_thr.T
 
-    # Convert back to DataFrame
     if index is not None:
         A_thr = pd.DataFrame(
             A_thr,
@@ -185,11 +199,8 @@ def plot_correlation_matrix(
     output_path=None,
     title="Correlation Matrix",
     cmap="RdBu",
+    show=False,
 ):
-    """
-    Plot and optionally save a correlation matrix heatmap.
-    """
-
     mask = np.triu(np.ones_like(corr, dtype=bool))
 
     fig, ax = plt.subplots(figsize=(14, 12))
@@ -209,17 +220,69 @@ def plot_correlation_matrix(
     )
 
     ax.set_title(title, fontsize=20, fontweight="bold", pad=20)
-
     plt.xticks(rotation=45, ha="right")
     plt.yticks(rotation=0)
 
     fig.tight_layout()
 
     if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
+    return ax
+
+
+def plot_correlation_distribution(
+    matrix,
+    title="Correlation Distribution",
+    output_path=None,
+    bins=40,
+    xlim=(-1, 1),
+    ylim=None,
+    show=False,
+):
+    values = extract_off_diagonal_values(matrix)
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    sns.histplot(
+        values,
+        bins=bins,
+        binrange=xlim,
+        kde=True,
+        ax=ax,
+    )
+
+    ax.axvline(0, linestyle="--", linewidth=1)
+
+    ax.set_xlim(*xlim)
+
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
+    ax.set_title(title, fontsize=15, fontweight="bold")
+    ax.set_xlabel("Correlation value")
+    ax.set_ylabel("Count")
+
+    fig.tight_layout()
+
+    if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return ax
 
 
 def plot_correlation_network(
@@ -232,62 +295,25 @@ def plot_correlation_network(
     layout_iterations=500,
     seed=42,
     output_path=None,
+    show=False,
 ):
-    """
-    Draw a correlation network with matplotlib.
-
-    Nodes are questions/columns. Edges are coloured blue for positive
-    correlations and red for negative correlations. Edge thickness is
-    proportional to absolute correlation.
-
-    Parameters
-    ----------
-    corr : pandas.DataFrame
-        Correlation matrix.
-    threshold : float
-        Minimum absolute correlation needed to draw an edge.
-    title : str, optional
-        Plot title.
-    ax : matplotlib.axes.Axes, optional
-        Axes to draw on. Created if not provided.
-    figsize : tuple
-        Figure size if ax is not provided.
-    layout_k : float
-        Spacing parameter for spring layout.
-    layout_iterations : int
-        Number of layout iterations.
-    seed : int
-        Random seed for reproducible layout.
-    output_path : str, optional
-        If provided, save the figure to this path.
-
-    Returns
-    -------
-    matplotlib.axes.Axes
-    """
-
     adjacency = corr.copy()
 
-    # Remove self-correlations.
     adjacency = adjacency.mask(
         np.eye(len(adjacency), dtype=bool),
         0,
     )
 
-    # Remove weak correlations.
     adjacency[np.abs(adjacency) < threshold] = 0
 
-    # Build NetworkX graph.
     G = nx.from_pandas_adjacency(adjacency)
 
-    # Remove zero-weight edges.
     G.remove_edges_from([
         (u, v)
         for u, v, w in G.edges(data="weight")
         if w == 0
     ])
 
-    # Remove isolated nodes for a cleaner plot.
     G.remove_nodes_from(list(nx.isolates(G)))
 
     if ax is None:
@@ -298,9 +324,19 @@ def plot_correlation_network(
 
     if G.number_of_nodes() == 0:
         ax.set_title("No edges above threshold", fontsize=11)
+
+        if output_path is not None:
+            output_path = Path(output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            ax.figure.savefig(output_path, dpi=300, bbox_inches="tight")
+
+        if show:
+            plt.show()
+        else:
+            plt.close(ax.figure)
+
         return ax
 
-    # Spring layout is the NetworkX equivalent of a force-directed layout.
     pos = nx.spring_layout(
         G,
         seed=seed,
@@ -318,10 +354,8 @@ def plot_correlation_network(
         for i, node in enumerate(G.nodes())
     }
 
-    # Draw edges manually for better control.
     for u, v, data in G.edges(data=True):
         weight = data["weight"]
-
         color = "#d62728" if weight < 0 else "#1f77b4"
         lw = np.clip(abs(weight) * 8, 0.4, 4.0)
 
@@ -338,7 +372,6 @@ def plot_correlation_network(
             solid_capstyle="round",
         )
 
-    # Draw nodes.
     ax.scatter(
         x,
         y,
@@ -349,7 +382,6 @@ def plot_correlation_network(
         zorder=2,
     )
 
-    # Draw labels slightly outside the node cloud.
     cx, cy = x.mean(), y.mean()
     span = max(
         coords[:, 0].max() - coords[:, 0].min(),
@@ -389,50 +421,150 @@ def plot_correlation_network(
         )
 
     if title is None:
-        title = (
-            "Correlation network\n"
-            "Blue = positive  |  Red = negative"
-        )
+        title = "Correlation network\nBlue = positive  |  Red = negative"
 
     ax.set_title(title, fontsize=11)
 
     if output_path is not None:
-        ax.figure.savefig(
-            output_path,
-            dpi=300,
-            bbox_inches="tight",
-        )
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        ax.figure.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(ax.figure)
 
     return ax
 
 
-def save_correlation_matrix(corr, output_path):
-    """
-    Save a correlation matrix.
+def run_correlation_pipeline(
+    csv_path,
+    column="cntry",
+    question_start_col=14,
+    question_end_col=34,
+    output_dir="../outputs",
+    plot_dir="../plots",
+    correlation_method="kendall",
+    bins=40,
+    distribution_xlim=(-1, 1),
+):
+    output_dir = Path(output_dir)
+    plot_dir = Path(plot_dir)
 
-    Supported formats:
-    - .csv
-    - .parquet
-    - .pkl
-    - .npy
-    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    plot_dir.mkdir(parents=True, exist_ok=True)
 
-    output_path = Path(output_path)
-    suffix = output_path.suffix.lower()
+    df = pd.read_csv(csv_path)
+    groups = sorted(df[column].dropna().unique())
 
-    if suffix == ".csv":
-        corr.to_csv(output_path)
+    results = {}
+    all_matrices = []
 
-    elif suffix == ".parquet":
-        corr.to_parquet(output_path)
+    for group_value in groups:
+        print(f"Processing {group_value}...")
 
-    elif suffix in [".pkl", ".pickle"]:
-        corr.to_pickle(output_path)
+        filters = {
+            column: {"value": group_value}
+        }
 
-    elif suffix == ".npy":
-        np.save(output_path, corr.to_numpy())
-
-    else:
-        raise ValueError(
-            "Unsupported file format. Use .csv, .parquet, .pkl, or .npy"
+        group = retrieve_group(
+            csv_path=csv_path,
+            filters=filters,
         )
+
+        if len(group) < 5:
+            print(f"Skipping {group_value}: too few rows ({len(group)})")
+            continue
+
+        group_results = {}
+        configs = {}
+
+        corr = generate_correlation_matrix(
+            group,
+            question_start_col=question_start_col,
+            question_end_col=question_end_col,
+            method=correlation_method,
+        )
+
+        configs["correlation"] = corr
+
+        try:
+            partial_corr = generate_partial_correlation_matrix(
+                group,
+                question_start_col=question_start_col,
+                question_end_col=question_end_col,
+            )
+
+            configs["partial_correlation"] = partial_corr
+
+        except Exception as e:
+            print(f"Skipping partial correlation for {group_value}: {e}")
+
+        for method_name, matrix in configs.items():
+            group_results[method_name] = {
+                "matrix": matrix,
+            }
+
+            all_matrices.append(matrix)
+
+        results[group_value] = group_results
+
+    _, distribution_ylim = compute_distribution_limits(
+        all_matrices,
+        bins=bins,
+        xlim=distribution_xlim,
+    )
+
+    for group_value, group_results in results.items():
+        for method_name, result in group_results.items():
+            matrix = result["matrix"]
+
+            plot_name = f"{method_name}_{group_value}"
+
+            matrix_title = (
+                f"{method_name.replace('_', ' ').title()} "
+                f"Matrix — {group_value}"
+            )
+
+            distribution_title = (
+                f"{method_name.replace('_', ' ').title()} "
+                f"Distribution — {group_value}"
+            )
+
+            network_title = (
+                f"{method_name.replace('_', ' ').title()} "
+                f"Network — {group_value}"
+            )
+
+            save_correlation_matrix(
+                matrix,
+                output_dir / f"{plot_name}.pkl",
+            )
+
+            plot_correlation_matrix(
+                matrix,
+                title=matrix_title,
+                output_path=plot_dir / f"{plot_name}_matrix.png",
+                show=False,
+            )
+
+            plot_correlation_distribution(
+                matrix,
+                title=distribution_title,
+                output_path=plot_dir / f"{plot_name}_distribution.png",
+                bins=bins,
+                xlim=distribution_xlim,
+                ylim=distribution_ylim,
+                show=False,
+            )
+
+            plot_correlation_network(
+                matrix,
+                threshold=0,
+                title=network_title,
+                output_path=plot_dir / f"{plot_name}_network.png",
+                show=False,
+            )
+
+    return results
