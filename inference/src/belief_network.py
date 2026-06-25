@@ -170,7 +170,7 @@ class BeliefNetwork:
             u_i, v_i = int(e.source()), int(e.target())
             weight = w[e]
             color = "#d62728" if weight < 0 else "#1f77b4"
-            lw = np.clip(abs(weight) * 0.4, 0.4, 4.0)
+            lw = np.clip(abs(weight) * 4.0, 0.4, 4.0)
             ax.plot([x[u_i], x[v_i]], [y[u_i], y[v_i]],
                     color=color, linewidth=lw, alpha=0.6,
                     zorder=1, solid_capstyle="round")
@@ -200,11 +200,33 @@ class BeliefNetwork:
         ax.set_title(title, fontsize=11)
         return ax
 
+    def get_partial_correlations(self):
+        """Return partial correlations derived from the inferred precision matrix.
+
+        Converts raw precision matrix entries W_ij to partial correlations
+        via: rho_ij = -W_ij / sqrt(W_ii * W_jj).
+
+        Returns
+        -------
+        gt.EdgePropertyMap
+            Edge property map with partial correlation values.
+        """
+        self._check_fitted()
+        W = self.state.get_precision().todense()
+        W = np.asarray(W)
+        D = np.sqrt(np.diag(W))
+
+        pc = self.graph.new_ep("double")
+        for e in self.graph.edges():
+            i, j = int(e.source()), int(e.target())
+            pc[e] = -W[i, j] / (D[i] * D[j])
+        return pc
+
     def save(self, path):
         """Save the inferred network to a file (GraphML or GT format).
 
         Node property 'belief' stores the belief dimension name.
-        Edge property 'weight' stores the inferred edge weight.
+        Edge property 'weight' stores partial correlations.
 
         Parameters
         ----------
@@ -220,9 +242,10 @@ class BeliefNetwork:
             vlabel[v] = self.columns[int(v)]
         g.vp["belief"] = vlabel
 
+        pc = self.get_partial_correlations()
         eweight = g.new_ep("double")
-        for e in g.edges():
-            eweight[e] = self.weights[e]
+        for e_new, e_old in zip(g.edges(), self.graph.edges()):
+            eweight[e_new] = pc[e_old]
         g.ep["weight"] = eweight
 
         g.save(path)

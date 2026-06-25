@@ -9,8 +9,9 @@ Writes: ../output/networks/<cntry>.graphml  (one per country)
 """
 
 import os
-import sys
 import time
+from multiprocessing import Pool, cpu_count
+
 import pandas as pd
 from belief_network import BeliefNetwork
 
@@ -29,45 +30,52 @@ BELIEF_DIMS = [
 ]
 
 
+def fit_country(args):
+    cntry, df_c = args
+    n = len(df_c)
+    t0 = time.time()
+
+    bn = BeliefNetwork(BELIEF_DIMS)
+    bn.fit(df_c, verbose=False)
+    elapsed = time.time() - t0
+
+    out_path = os.path.join(OUT_DIR, f"{cntry}.graphml")
+    bn.save(out_path)
+
+    n_edges = bn.graph.num_edges()
+    dl = bn.state.entropy()
+    print(f"  {cntry}  n={n:,}  |  {n_edges} edges  |  DL={dl:.1f}  |  {elapsed:.1f}s")
+
+    return {
+        "country": cntry,
+        "n_respondents": n,
+        "n_edges": n_edges,
+        "description_length": dl,
+        "time_s": round(elapsed, 1),
+    }
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
 
     df = pd.read_csv(DATA_PATH)
     countries = sorted(df["cntry"].unique())
-    print(f"Loaded {len(df):,} respondents across {len(countries)} countries\n")
+    n_workers = min(len(countries), cpu_count())
+    print(f"Loaded {len(df):,} respondents across {len(countries)} countries")
+    print(f"Running with {n_workers} parallel workers\n")
 
-    summary = []
+    tasks = [(cntry, df[df["cntry"] == cntry]) for cntry in countries]
 
-    for i, cntry in enumerate(countries, 1):
-        df_c = df[df["cntry"] == cntry]
-        n = len(df_c)
-        print(f"[{i:2d}/{len(countries)}] {cntry}  (n={n:,})")
+    t_total = time.time()
+    with Pool(n_workers) as pool:
+        results = pool.map(fit_country, tasks)
+    t_total = time.time() - t_total
 
-        t0 = time.time()
-        bn = BeliefNetwork(BELIEF_DIMS)
-        bn.fit(df_c, verbose=False)
-        elapsed = time.time() - t0
-
-        out_path = os.path.join(OUT_DIR, f"{cntry}.graphml")
-        bn.save(out_path)
-
-        n_edges = bn.graph.num_edges()
-        dl = bn.state.entropy()
-        print(f"         {n_edges} edges | DL = {dl:.1f} | {elapsed:.1f}s")
-
-        summary.append({
-            "country": cntry,
-            "n_respondents": n,
-            "n_edges": n_edges,
-            "description_length": dl,
-            "time_s": round(elapsed, 1),
-        })
-
-    summary_df = pd.DataFrame(summary)
+    summary_df = pd.DataFrame(results)
     summary_path = os.path.join(OUT_DIR, "summary.csv")
     summary_df.to_csv(summary_path, index=False)
 
-    print(f"\nDone. Networks saved to {OUT_DIR}/")
+    print(f"\nDone in {t_total:.0f}s. Networks saved to {OUT_DIR}/")
     print(f"Summary saved to {summary_path}")
     print(f"\n{summary_df.to_string(index=False)}")
 
