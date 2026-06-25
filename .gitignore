@@ -49,3 +49,7 @@ Thumbs.db
 
 # Plots
 inference/plots/*.png
+inference/plots/country_networks
+
+# Network weights
+inference/output/country_networks

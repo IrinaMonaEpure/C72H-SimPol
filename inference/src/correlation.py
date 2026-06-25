@@ -83,6 +83,61 @@ def generate_partial_correlation_matrix(
     )
 
 
+def save_correlation_matrix(matrix, output_path):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    suffix = output_path.suffix.lower()
+
+    if suffix == ".csv":
+        matrix.to_csv(output_path)
+    elif suffix == ".parquet":
+        matrix.to_parquet(output_path)
+    elif suffix in [".pkl", ".pickle"]:
+        matrix.to_pickle(output_path)
+    elif suffix == ".npy":
+        np.save(output_path, matrix.to_numpy())
+    else:
+        raise ValueError(
+            "Unsupported file format. Use .csv, .parquet, .pkl, or .npy"
+        )
+
+
+def extract_off_diagonal_values(matrix):
+    A = matrix.to_numpy()
+
+    mask = np.triu(
+        np.ones_like(A, dtype=bool),
+        k=1,
+    )
+
+    values = A[mask]
+    values = values[~np.isnan(values)]
+
+    return values
+
+
+def compute_distribution_limits(
+    matrices,
+    bins=40,
+    xlim=(-1, 1),
+):
+    ymax = 0
+
+    for matrix in matrices:
+        values = extract_off_diagonal_values(matrix)
+
+        counts, _ = np.histogram(
+            values,
+            bins=bins,
+            range=xlim,
+        )
+
+        if len(counts) > 0:
+            ymax = max(ymax, counts.max())
+
+    return xlim, (0, ymax * 1.1)
+
 def threshold_signed_adjacency(A, top_percent=20, keep_diagonal=False):
     if isinstance(A, pd.DataFrame):
         index = A.index
@@ -130,7 +185,11 @@ def threshold_signed_adjacency(A, top_percent=20, keep_diagonal=False):
     A_thr = A_thr + A_thr.T
 
     if index is not None:
-        A_thr = pd.DataFrame(A_thr, index=index, columns=columns)
+        A_thr = pd.DataFrame(
+            A_thr,
+            index=index,
+            columns=columns,
+        )
 
     return A_thr, pos_threshold, neg_threshold
 
@@ -161,13 +220,14 @@ def plot_correlation_matrix(
     )
 
     ax.set_title(title, fontsize=20, fontweight="bold", pad=20)
-
     plt.xticks(rotation=45, ha="right")
     plt.yticks(rotation=0)
 
     fig.tight_layout()
 
     if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
     if show:
@@ -180,27 +240,32 @@ def plot_correlation_matrix(
 
 def plot_correlation_distribution(
     matrix,
-    title="Correlation distribution",
+    title="Correlation Distribution",
     output_path=None,
     bins=40,
+    xlim=(-1, 1),
+    ylim=None,
     show=False,
 ):
-    A = matrix.to_numpy()
-
-    upper_mask = np.triu(np.ones_like(A, dtype=bool), k=1)
-    values = A[upper_mask]
-    values = values[~np.isnan(values)]
+    values = extract_off_diagonal_values(matrix)
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
     sns.histplot(
         values,
         bins=bins,
+        binrange=xlim,
         kde=True,
         ax=ax,
     )
 
     ax.axvline(0, linestyle="--", linewidth=1)
+
+    ax.set_xlim(*xlim)
+
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
     ax.set_title(title, fontsize=15, fontweight="bold")
     ax.set_xlabel("Correlation value")
     ax.set_ylabel("Count")
@@ -208,6 +273,8 @@ def plot_correlation_distribution(
     fig.tight_layout()
 
     if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
     if show:
@@ -259,6 +326,8 @@ def plot_correlation_network(
         ax.set_title("No edges above threshold", fontsize=11)
 
         if output_path is not None:
+            output_path = Path(output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
             ax.figure.savefig(output_path, dpi=300, bbox_inches="tight")
 
         if show:
@@ -287,7 +356,6 @@ def plot_correlation_network(
 
     for u, v, data in G.edges(data=True):
         weight = data["weight"]
-
         color = "#d62728" if weight < 0 else "#1f77b4"
         lw = np.clip(abs(weight) * 8, 0.4, 4.0)
 
@@ -358,6 +426,8 @@ def plot_correlation_network(
     ax.set_title(title, fontsize=11)
 
     if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         ax.figure.savefig(output_path, dpi=300, bbox_inches="tight")
 
     if show:
@@ -368,28 +438,6 @@ def plot_correlation_network(
     return ax
 
 
-def save_correlation_matrix(corr, output_path):
-    output_path = Path(output_path)
-    suffix = output_path.suffix.lower()
-
-    if suffix == ".csv":
-        corr.to_csv(output_path)
-
-    elif suffix == ".parquet":
-        corr.to_parquet(output_path)
-
-    elif suffix in [".pkl", ".pickle"]:
-        corr.to_pickle(output_path)
-
-    elif suffix == ".npy":
-        np.save(output_path, corr.to_numpy())
-
-    else:
-        raise ValueError(
-            "Unsupported file format. Use .csv, .parquet, .pkl, or .npy"
-        )
-
-
 def run_correlation_pipeline(
     csv_path,
     column="cntry",
@@ -398,6 +446,8 @@ def run_correlation_pipeline(
     output_dir="../outputs",
     plot_dir="../plots",
     correlation_method="kendall",
+    bins=40,
+    distribution_xlim=(-1, 1),
 ):
     output_dir = Path(output_dir)
     plot_dir = Path(plot_dir)
@@ -409,6 +459,7 @@ def run_correlation_pipeline(
     groups = sorted(df[column].dropna().unique())
 
     results = {}
+    all_matrices = []
 
     for group_value in groups:
         print(f"Processing {group_value}...")
@@ -427,7 +478,6 @@ def run_correlation_pipeline(
             continue
 
         group_results = {}
-
         configs = {}
 
         corr = generate_correlation_matrix(
@@ -440,21 +490,49 @@ def run_correlation_pipeline(
         configs["correlation"] = corr
 
         try:
-            part_corr = generate_partial_correlation_matrix(
+            partial_corr = generate_partial_correlation_matrix(
                 group,
                 question_start_col=question_start_col,
                 question_end_col=question_end_col,
             )
 
-            configs["partial_correlation"] = part_corr
+            configs["partial_correlation"] = partial_corr
 
         except Exception as e:
             print(f"Skipping partial correlation for {group_value}: {e}")
 
         for method_name, matrix in configs.items():
+            group_results[method_name] = {
+                "matrix": matrix,
+            }
+
+            all_matrices.append(matrix)
+
+        results[group_value] = group_results
+
+    _, distribution_ylim = compute_distribution_limits(
+        all_matrices,
+        bins=bins,
+        xlim=distribution_xlim,
+    )
+
+    for group_value, group_results in results.items():
+        for method_name, result in group_results.items():
+            matrix = result["matrix"]
+
             plot_name = f"{method_name}_{group_value}"
 
-            title = (
+            matrix_title = (
+                f"{method_name.replace('_', ' ').title()} "
+                f"Matrix — {group_value}"
+            )
+
+            distribution_title = (
+                f"{method_name.replace('_', ' ').title()} "
+                f"Distribution — {group_value}"
+            )
+
+            network_title = (
                 f"{method_name.replace('_', ' ').title()} "
                 f"Network — {group_value}"
             )
@@ -464,43 +542,29 @@ def run_correlation_pipeline(
                 output_dir / f"{plot_name}.pkl",
             )
 
-            save_correlation_matrix(
-                matrix,
-                output_dir / f"{plot_name}.csv",
-            )
-
             plot_correlation_matrix(
                 matrix,
-                title=(
-                    f"{method_name.replace('_', ' ').title()} "
-                    f"Matrix — {group_value}"
-                ),
+                title=matrix_title,
                 output_path=plot_dir / f"{plot_name}_matrix.png",
                 show=False,
             )
 
             plot_correlation_distribution(
                 matrix,
-                title=(
-                    f"{method_name.replace('_', ' ').title()} "
-                    f"Distribution — {group_value}"
-                ),
+                title=distribution_title,
                 output_path=plot_dir / f"{plot_name}_distribution.png",
+                bins=bins,
+                xlim=distribution_xlim,
+                ylim=distribution_ylim,
                 show=False,
             )
 
             plot_correlation_network(
                 matrix,
                 threshold=0,
-                title=title,
+                title=network_title,
                 output_path=plot_dir / f"{plot_name}_network.png",
                 show=False,
             )
-
-            group_results[method_name] = {
-                "matrix": matrix,
-            }
-
-        results[group_value] = group_results
 
     return results
