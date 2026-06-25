@@ -5,10 +5,12 @@ Usage (from inference/src/):
 
 Reads : ../input/data/ESS8e02_3_self_processed/ess8_cca_initial_beliefs.csv
 Writes: ../output/networks/<cntry>.graphml  (one per country)
+        ../output/networks/<cntry>.pkl      (pickled BeliefNetwork object)
         ../output/networks/summary.csv       (edge count + DL per country)
 """
 
 import os
+import pickle
 import time
 from multiprocessing import Pool, cpu_count
 
@@ -39,8 +41,11 @@ def fit_country(args):
     bn.fit(df_c, verbose=False)
     elapsed = time.time() - t0
 
-    out_path = os.path.join(OUT_DIR, f"{cntry}.graphml")
-    bn.save(out_path)
+    bn.save(os.path.join(OUT_DIR, f"{cntry}.graphml"))
+
+    pkl_path = os.path.join(OUT_DIR, f"{cntry}.pkl")
+    with open(pkl_path, "wb") as f:
+        pickle.dump(bn, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     n_edges = bn.graph.num_edges()
     dl = bn.state.entropy()
