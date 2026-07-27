@@ -47,9 +47,18 @@ Thumbs.db
 # Claude Code
 .claude/
 
+# Webapp
+webapp/
+
 # Plots
 inference/plots/*.png
 inference/plots/country_networks
 
 # Network weights
 inference/output/country_networks
+
+# Generated outputs
+inference/output/figures/
+inference/output/networks/*.pkl
+inference/output/comparison/
+inference/output/*.zip
