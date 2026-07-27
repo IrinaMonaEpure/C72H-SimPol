@@ -9,6 +9,7 @@ import networkx as nx
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.covariance import GraphicalLassoCV
+from adjustText import adjust_text
 
 
 def retrieve_group(csv_path, filters=None):
@@ -290,12 +291,13 @@ def plot_correlation_network(
     threshold=0,
     title=None,
     ax=None,
-    figsize=(14, 14),
+    figsize=(16, 10),
     layout_k=1.2,
     layout_iterations=500,
     seed=42,
     output_path=None,
     show=False,
+    auto_rotate_horizontal=True,
 ):
     adjacency = corr.copy()
 
@@ -319,7 +321,7 @@ def plot_correlation_network(
     if ax is None:
         _, ax = plt.subplots(figsize=figsize)
 
-    ax.set_aspect("equal")
+    ax.set_aspect("equal", adjustable="datalim")
     ax.axis("off")
 
     if G.number_of_nodes() == 0:
@@ -346,8 +348,17 @@ def plot_correlation_network(
     )
 
     coords = np.array([pos[node] for node in G.nodes()])
+
     x = coords[:, 0]
     y = coords[:, 1]
+
+    if auto_rotate_horizontal:
+        width = x.max() - x.min()
+        height = y.max() - y.min()
+
+        if height > width:
+            x, y = y.copy(), -x.copy()
+            coords = np.column_stack([x, y])
 
     node_to_i = {
         node: i
@@ -423,7 +434,7 @@ def plot_correlation_network(
     if title is None:
         title = "Correlation network\nBlue = positive  |  Red = negative"
 
-    ax.set_title(title, fontsize=11)
+    # ax.set_title(title, fontsize=11)
 
     if output_path is not None:
         output_path = Path(output_path)
