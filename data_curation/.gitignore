@@ -1,49 +1,28 @@
-# macOS
+# macOS-generated files
 .DS_Store
 **/.DS_Store
 
+# Jupyter-generated checkpoint copies
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
 # Python bytecode and caches
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-# Jupyter
-.ipynb_checkpoints/
-
-# Virtual environments
+# Local Python environments
 .venv/
 venv/
 env/
 
-# Editors
+# Editor and temporary files
 .vscode/
 .idea/
-
-# Logs and temporary files
 *.log
 *.tmp
 *.swp
 *~
-
-# Raw ESS respondent-level data
-data/ESS4e04_6/*.csv
-data/ESS8e02_3/*.csv
-
-# Generated respondent-level outputs
-data/processed/ess4_cca_initial_beliefs_with_weights.csv
-data/processed/ess4_cca_initial_beliefs_without_weights.csv
-data/processed/ess8_cca_initial_beliefs_with_weights.csv
-data/processed/ess8_cca_initial_beliefs_without_weights.csv
-data/processed/README_ess8_curation.txt
-
-# Downloaded third-party reference binaries and archives
-reference/van_noord/*.zip
-reference/van_noord/**/data/
-reference/jcae011.pdf
-reference/jcae011_suppl_supplementary_appendix.docx
-
-# Superseded local working files
-/data_curation.ipynb
-/ESS8_weighting_strategy.pdf
