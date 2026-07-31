@@ -1,0 +1,28 @@
+# macOS-generated files
+.DS_Store
+**/.DS_Store
+
+# Jupyter-generated checkpoint copies
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Python bytecode and caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local Python environments
+.venv/
+venv/
+env/
+
+# Editor and temporary files
+.vscode/
+.idea/
+*.log
+*.tmp
+*.swp
+*~
