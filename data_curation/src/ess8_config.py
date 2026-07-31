@@ -1,8 +1,11 @@
 """Round-specific configuration for ESS Round 8 data curation.
 
-This module contains constants only. Shared cleaning, rescaling, sample
-selection, weight handling, and validation functions belong in
-``ess_curation_common.py``.
+This module contains constants only. The principal output retains all
+respondents aged 18 or older (and respondents with missing age), regardless
+of belief missingness. The historical CCA threshold is retained only as an
+eligibility flag and for published-reference validation. Shared cleaning,
+rescaling, sample selection, weight handling, and validation functions belong
+in ``ess_curation_common.py``.
 
 The ordering of dictionaries and tuples is intentional because it determines
 the final column order of the curated ESS8 datasets.
@@ -21,23 +24,25 @@ RAW_DATA_FILENAME = "ESS8e02_3.csv"
 OUTPUT_PREFIX = "ess8"
 
 OUTPUT_FILENAMES = {
-    "without_weights": "ess8_cca_initial_beliefs_without_weights.csv",
-    "with_weights": "ess8_cca_initial_beliefs_with_weights.csv",
-    "validation": "ess8_belief_validation_against_paper.csv",
+    "without_weights": "ess8_beliefs_all_adults_without_weights.csv",
+    "with_weights": "ess8_beliefs_all_adults_with_weights.csv",
+    "validation": "ess8_cca_subset_validation_against_paper.csv",
 }
 
 # ---------------------------------------------------------------------------
-# Expected dataset dimensions and shared CCA sample rule
+# Expected dataset dimensions and sample definitions
 # ---------------------------------------------------------------------------
 
 EXPECTED_RAW_N = 44_387
 EXPECTED_RAW_COUNTRIES = 23
-EXPECTED_FINAL_N = 37_118
-EXPECTED_FINAL_COUNTRIES = 23
+EXPECTED_ANALYSIS_N = 43_148
+EXPECTED_ANALYSIS_COUNTRIES = 23
+EXPECTED_CCA_N = 37_118
+EXPECTED_CCA_COUNTRIES = 23
 EXPECTED_BELIEF_COUNT = 20
 
 MINIMUM_AGE = 18
-MAXIMUM_MISSING_BELIEFS = 2
+CCA_MAXIMUM_MISSING_BELIEFS = 2
 
 # ---------------------------------------------------------------------------
 # Official ESS survey weights
@@ -299,12 +304,13 @@ PAPER_STATISTICS_COLUMNS = (
 )
 
 # ---------------------------------------------------------------------------
-# Expected final output schemas
+# Expected principal-output schemas
 # ---------------------------------------------------------------------------
 
 MISSINGNESS_COLUMNS = (
     "n_belief_missing",
     "n_belief_available",
+    "cca_missingness_eligible",
 )
 
 OUTPUT_COLUMNS_WITHOUT_WEIGHTS = (
@@ -319,5 +325,5 @@ OUTPUT_COLUMNS_WITH_WEIGHTS = (
     + MISSINGNESS_COLUMNS
 )
 
-EXPECTED_WITHOUT_WEIGHTS_SHAPE = (EXPECTED_FINAL_N, 36)
-EXPECTED_WITH_WEIGHTS_SHAPE = (EXPECTED_FINAL_N, 40)
+EXPECTED_WITHOUT_WEIGHTS_SHAPE = (EXPECTED_ANALYSIS_N, 37)
+EXPECTED_WITH_WEIGHTS_SHAPE = (EXPECTED_ANALYSIS_N, 41)

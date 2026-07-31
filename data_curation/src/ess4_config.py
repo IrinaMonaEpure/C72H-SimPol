@@ -1,9 +1,12 @@
 """Round-specific configuration for ESS Round 4 data curation.
 
-This module translates the deterministic preprocessing choices in Jochem van
-Noord's supplied ``Data cleaning_ESS4.R`` script into explicit Python
-configuration. Shared cleaning, rescaling, sample selection, weight handling,
-and validation functions belong in ``ess_curation_common.py``.
+This module translates the deterministic item construction choices in Jochem
+van Noord's supplied ``Data cleaning_ESS4.R`` script into explicit Python
+configuration. The principal output retains all respondents aged 18 or older
+(and respondents with missing age), regardless of belief missingness. The
+historical CCA threshold is retained only as an eligibility flag and for
+reference validation. Shared cleaning, rescaling, sample selection, weight
+handling, and validation functions belong in ``ess_curation_common.py``.
 
 The ordering of dictionaries and tuples is intentional because it determines
 the final column order of the curated ESS4 datasets.
@@ -22,9 +25,9 @@ RAW_DATA_FILENAME = "ESS4e04_6.csv"
 OUTPUT_PREFIX = "ess4"
 
 OUTPUT_FILENAMES = {
-    "without_weights": "ess4_cca_initial_beliefs_without_weights.csv",
-    "with_weights": "ess4_cca_initial_beliefs_with_weights.csv",
-    "validation": "ess4_belief_validation_against_reference.csv",
+    "without_weights": "ess4_beliefs_all_adults_without_weights.csv",
+    "with_weights": "ess4_beliefs_all_adults_with_weights.csv",
+    "validation": "ess4_cca_subset_validation_against_reference.csv",
 }
 
 # Van Noord reference files retained under reference/van_noord/.
@@ -44,17 +47,19 @@ REFERENCE_RDATA_PARTS = (
 )
 
 # ---------------------------------------------------------------------------
-# Expected dataset dimensions and shared CCA sample rule
+# Expected dataset dimensions and sample definitions
 # ---------------------------------------------------------------------------
 
 EXPECTED_RAW_N = 56_752
 EXPECTED_RAW_COUNTRIES = 29
-EXPECTED_FINAL_N = 45_268
-EXPECTED_FINAL_COUNTRIES = 29
+EXPECTED_ANALYSIS_N = 55_044
+EXPECTED_ANALYSIS_COUNTRIES = 29
+EXPECTED_CCA_N = 45_268
+EXPECTED_CCA_COUNTRIES = 29
 EXPECTED_BELIEF_COUNT = 19
 
 MINIMUM_AGE = 18
-MAXIMUM_MISSING_BELIEFS = 2
+CCA_MAXIMUM_MISSING_BELIEFS = 2
 
 # ---------------------------------------------------------------------------
 # Official ESS survey weights
@@ -304,12 +309,13 @@ REQUIRED_RAW_COLUMNS = tuple(
 )
 
 # ---------------------------------------------------------------------------
-# Expected final output schemas
+# Expected principal-output schemas
 # ---------------------------------------------------------------------------
 
 MISSINGNESS_COLUMNS = (
     "n_belief_missing",
     "n_belief_available",
+    "cca_missingness_eligible",
 )
 
 OUTPUT_COLUMNS_WITHOUT_WEIGHTS = (
@@ -324,5 +330,5 @@ OUTPUT_COLUMNS_WITH_WEIGHTS = (
     + MISSINGNESS_COLUMNS
 )
 
-EXPECTED_WITHOUT_WEIGHTS_SHAPE = (EXPECTED_FINAL_N, 34)
-EXPECTED_WITH_WEIGHTS_SHAPE = (EXPECTED_FINAL_N, 38)
+EXPECTED_WITHOUT_WEIGHTS_SHAPE = (EXPECTED_ANALYSIS_N, 35)
+EXPECTED_WITH_WEIGHTS_SHAPE = (EXPECTED_ANALYSIS_N, 39)

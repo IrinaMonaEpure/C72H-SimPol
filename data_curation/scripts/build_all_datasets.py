@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and validate all ESS Round 4 and ESS Round 8 curated datasets.
+"""Build and validate the revised ESS Round 4 and Round 8 datasets.
 
 Run this script from anywhere inside the project with:
 
@@ -9,13 +9,18 @@ The script:
 
 1. reads the raw ESS4 and ESS8 CSV files;
 2. constructs the round-specific metadata and belief variables;
-3. applies the shared adult/max-two-missing-beliefs sample rule;
-4. writes weighted and unweighted CSV files for both rounds;
-5. validates ESS8 against Supplementary Table A2;
-6. validates ESS4 respondent by respondent against Van Noord's df_ESS4.RData;
-7. writes a descriptive comparison of the belief concepts shared by both rounds.
+3. retains all respondents aged 18 or older, as well as respondents whose age
+   is missing, without excluding anyone because of belief missingness;
+4. records missing-belief counts and historical CCA missingness eligibility;
+5. writes weighted and unweighted principal CSV files for both rounds;
+6. validates the historical ESS8 CCA-compatible subset against Supplementary
+   Table A2;
+7. validates the historical ESS4 CCA-compatible subset respondent by
+   respondent against Van Noord's df_ESS4.RData;
+8. writes a descriptive comparison of the belief concepts shared by both
+   rounds using the full principal adult samples.
 
-No raw or reference file is modified.
+Missing belief values are not imputed. No raw or reference file is modified.
 """
 
 from __future__ import annotations
@@ -39,7 +44,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src import ess4_config as ess4
 from src import ess8_config as ess8
 from src.ess_curation_common import (
-    apply_cca_sample_rule,
+    apply_analysis_sample_rule,
     construct_belief_variables,
     require_columns,
     split_weighted_and_unweighted,
@@ -197,7 +202,7 @@ def clean_metadata(
 def build_round(
     config: ModuleType,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Build one round's unweighted and weighted respondent-level datasets."""
+    """Build one round's full adult weighted and unweighted datasets."""
     source_path = raw_data_path(config)
     if not source_path.exists():
         raise FileNotFoundError(
@@ -288,46 +293,101 @@ def build_round(
         kind="stable",
     ).reset_index(drop=True)
 
-    cca_initial = apply_cca_sample_rule(
+    analysis_sample = apply_analysis_sample_rule(
         curated_all,
         config.BELIEF_COLUMNS,
         age_column="agea",
         minimum_age=config.MINIMUM_AGE,
-        maximum_missing_beliefs=config.MAXIMUM_MISSING_BELIEFS,
+        cca_maximum_missing_beliefs=(
+            config.CCA_MAXIMUM_MISSING_BELIEFS
+        ),
     ).reset_index(drop=True)
 
-    if len(cca_initial) != config.EXPECTED_FINAL_N:
-        raise AssertionError(
-            f"{config.ROUND_LABEL}: expected {config.EXPECTED_FINAL_N:,} "
-            f"final respondents, found {len(cca_initial):,}."
-        )
-
-    final_country_count = cca_initial["cntry"].nunique(dropna=True)
-    if final_country_count != config.EXPECTED_FINAL_COUNTRIES:
+    if len(analysis_sample) != config.EXPECTED_ANALYSIS_N:
         raise AssertionError(
             f"{config.ROUND_LABEL}: expected "
-            f"{config.EXPECTED_FINAL_COUNTRIES} final countries, "
-            f"found {final_country_count}."
+            f"{config.EXPECTED_ANALYSIS_N:,} principal respondents, "
+            f"found {len(analysis_sample):,}."
         )
 
-    if not cca_initial["n_belief_missing"].le(
-        config.MAXIMUM_MISSING_BELIEFS
+    analysis_country_count = analysis_sample["cntry"].nunique(
+        dropna=True
+    )
+    if (
+        analysis_country_count
+        != config.EXPECTED_ANALYSIS_COUNTRIES
+    ):
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: expected "
+            f"{config.EXPECTED_ANALYSIS_COUNTRIES} principal countries, "
+            f"found {analysis_country_count}."
+        )
+
+    expected_missing = (
+        analysis_sample.loc[:, config.BELIEF_COLUMNS]
+        .isna()
+        .sum(axis=1)
+    )
+    if not analysis_sample["n_belief_missing"].eq(
+        expected_missing
     ).all():
         raise AssertionError(
-            f"{config.ROUND_LABEL}: final sample violates the missingness rule."
+            f"{config.ROUND_LABEL}: incorrect n_belief_missing values."
+        )
+
+    if not analysis_sample["n_belief_available"].eq(
+        config.EXPECTED_BELIEF_COUNT - expected_missing
+    ).all():
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: incorrect n_belief_available values."
+        )
+
+    expected_cca_flag = expected_missing.le(
+        config.CCA_MAXIMUM_MISSING_BELIEFS
+    )
+    observed_cca_flag = analysis_sample[
+        "cca_missingness_eligible"
+    ].astype(bool)
+    if not observed_cca_flag.eq(expected_cca_flag).all():
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: incorrect historical CCA "
+            "missingness-eligibility flags."
+        )
+
+    historical_cca_count = int(observed_cca_flag.sum())
+    if historical_cca_count != config.EXPECTED_CCA_N:
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: expected "
+            f"{config.EXPECTED_CCA_N:,} historical CCA-compatible "
+            f"respondents, found {historical_cca_count:,}."
+        )
+
+    historical_cca_country_count = analysis_sample.loc[
+        observed_cca_flag,
+        "cntry",
+    ].nunique(dropna=True)
+    if (
+        historical_cca_country_count
+        != config.EXPECTED_CCA_COUNTRIES
+    ):
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: expected "
+            f"{config.EXPECTED_CCA_COUNTRIES} countries in the historical "
+            f"CCA-compatible subset, found "
+            f"{historical_cca_country_count}."
         )
 
     adult_or_missing_age = (
-        cca_initial["agea"].ge(config.MINIMUM_AGE)
-        | cca_initial["agea"].isna()
+        analysis_sample["agea"].ge(config.MINIMUM_AGE)
+        | analysis_sample["agea"].isna()
     )
     if not adult_or_missing_age.all():
         raise AssertionError(
-            f"{config.ROUND_LABEL}: final sample violates the age rule."
+            f"{config.ROUND_LABEL}: principal sample violates the age rule."
         )
 
     without_weights, with_weights = split_weighted_and_unweighted(
-        cca_initial,
+        analysis_sample,
         config.WEIGHT_COLUMNS,
         insert_after=config.WEIGHT_INSERT_AFTER,
     )
@@ -339,25 +399,24 @@ def build_round(
         :, config.OUTPUT_COLUMNS_WITH_WEIGHTS
     ].copy()
 
-    expected_without_shape = (
-        config.EXPECTED_FINAL_N,
-        len(config.OUTPUT_COLUMNS_WITHOUT_WEIGHTS),
-    )
-    expected_with_shape = (
-        config.EXPECTED_FINAL_N,
-        len(config.OUTPUT_COLUMNS_WITH_WEIGHTS),
-    )
-
-    if without_weights.shape != expected_without_shape:
+    if (
+        without_weights.shape
+        != config.EXPECTED_WITHOUT_WEIGHTS_SHAPE
+    ):
         raise AssertionError(
             f"{config.ROUND_LABEL}: expected unweighted shape "
-            f"{expected_without_shape}, found {without_weights.shape}."
+            f"{config.EXPECTED_WITHOUT_WEIGHTS_SHAPE}, "
+            f"found {without_weights.shape}."
         )
 
-    if with_weights.shape != expected_with_shape:
+    if (
+        with_weights.shape
+        != config.EXPECTED_WITH_WEIGHTS_SHAPE
+    ):
         raise AssertionError(
             f"{config.ROUND_LABEL}: expected weighted shape "
-            f"{expected_with_shape}, found {with_weights.shape}."
+            f"{config.EXPECTED_WITH_WEIGHTS_SHAPE}, "
+            f"found {with_weights.shape}."
         )
 
     validate_weight_split(
@@ -368,8 +427,18 @@ def build_round(
     )
 
     print(f"Raw respondents: {len(raw):,}")
-    print(f"Final respondents: {len(without_weights):,}")
-    print(f"Countries: {final_country_count}")
+    print(
+        f"Principal adult respondents: {len(without_weights):,}"
+    )
+    print(
+        "Historical CCA-compatible respondents: "
+        f"{historical_cca_count:,}"
+    )
+    print(
+        "Adults retained above the historical missingness threshold: "
+        f"{len(without_weights) - historical_cca_count:,}"
+    )
+    print(f"Countries: {analysis_country_count}")
     print(f"Belief variables: {len(config.BELIEF_COLUMNS)}")
     print(f"Without-weights shape: {without_weights.shape}")
     print(f"With-weights shape: {with_weights.shape}")
@@ -377,12 +446,68 @@ def build_round(
     return without_weights, with_weights
 
 
+
+def historical_cca_subset(
+    dataframe: pd.DataFrame,
+    config: ModuleType,
+) -> pd.DataFrame:
+    """Return and verify the historical CCA-compatible respondent subset."""
+    require_columns(
+        dataframe,
+        [
+            "cntry",
+            "n_belief_missing",
+            "cca_missingness_eligible",
+            *config.BELIEF_COLUMNS,
+        ],
+        context=f"{config.ROUND_LABEL} principal dataset",
+    )
+
+    expected_flag = dataframe["n_belief_missing"].le(
+        config.CCA_MAXIMUM_MISSING_BELIEFS
+    )
+    observed_flag = dataframe[
+        "cca_missingness_eligible"
+    ].astype(bool)
+
+    if not observed_flag.eq(expected_flag).all():
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: the saved CCA eligibility flag "
+            "does not match the historical missingness threshold."
+        )
+
+    subset = dataframe.loc[observed_flag].copy().reset_index(
+        drop=True
+    )
+
+    if len(subset) != config.EXPECTED_CCA_N:
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: expected "
+            f"{config.EXPECTED_CCA_N:,} historical CCA-compatible "
+            f"respondents, found {len(subset):,}."
+        )
+
+    country_count = subset["cntry"].nunique(dropna=True)
+    if country_count != config.EXPECTED_CCA_COUNTRIES:
+        raise AssertionError(
+            f"{config.ROUND_LABEL}: expected "
+            f"{config.EXPECTED_CCA_COUNTRIES} countries in the historical "
+            f"CCA-compatible subset, found {country_count}."
+        )
+
+    return subset
+
+
 def validate_ess8_against_paper(
     ess8_without: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Reproduce Supplementary Table A2 validation for ESS8."""
-    reproduced = summarise_beliefs(
+    """Validate the historical ESS8 CCA subset against Table A2."""
+    ess8_cca = historical_cca_subset(
         ess8_without,
+        ess8,
+    )
+    reproduced = summarise_beliefs(
+        ess8_cca,
         ess8.BELIEF_COLUMNS,
     )
     published = pd.DataFrame(
@@ -430,8 +555,9 @@ def validate_ess8_against_paper(
 
     print()
     print(
-        "ESS8 validation passed: all 20 belief variables reproduce "
-        "Supplementary Table A2."
+        "ESS8 validation passed: all 20 belief variables in the "
+        "historical CCA-compatible subset reproduce Supplementary "
+        "Table A2."
     )
     return validation
 
@@ -483,7 +609,12 @@ def numeric_match_mask(
 def validate_ess4_against_reference(
     ess4_without: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Compare ESS4 beliefs respondent by respondent with df_ESS4.RData."""
+    """Validate the historical ESS4 CCA subset against df_ESS4.RData."""
+    ess4_cca = historical_cca_subset(
+        ess4_without,
+        ess4,
+    )
+
     try:
         import pyreadr
     except ImportError as exc:
@@ -513,10 +644,10 @@ def validate_ess4_against_reference(
     if not isinstance(reference_raw, pd.DataFrame):
         raise TypeError("The ESS4 RData object is not a dataframe.")
 
-    if len(reference_raw) != ess4.EXPECTED_FINAL_N:
+    if len(reference_raw) != ess4.EXPECTED_CCA_N:
         raise AssertionError(
             f"ESS4 R reference has {len(reference_raw):,} rows; expected "
-            f"{ess4.EXPECTED_FINAL_N:,}."
+            f"{ess4.EXPECTED_CCA_N:,}."
         )
 
     r_to_python_belief = {
@@ -640,7 +771,7 @@ def validate_ess4_against_reference(
             "Duplicate respondent keys found in the ESS4 R reference."
         )
 
-    python_data = ess4_without.copy()
+    python_data = ess4_cca.copy()
     python_data["idno"] = pd.to_numeric(
         python_data["idno"],
         errors="coerce",
@@ -763,8 +894,9 @@ def validate_ess4_against_reference(
         )
 
     print(
-        "ESS4 validation passed: all 19 belief variables match "
-        "df_ESS4.RData respondent by respondent."
+        "ESS4 validation passed: all 19 belief variables in the "
+        "historical CCA-compatible subset match df_ESS4.RData "
+        "respondent by respondent."
     )
     return validation
 
@@ -773,7 +905,7 @@ def create_cross_round_descriptives(
     ess4_without: pd.DataFrame,
     ess8_without: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Describe the belief concepts shared by ESS4 and ESS8."""
+    """Describe shared beliefs using the full principal adult samples."""
     shared_beliefs = tuple(
         belief
         for belief in ess8.BELIEF_COLUMNS
@@ -937,7 +1069,7 @@ def main() -> None:
     )
 
     print()
-    print("All requested datasets were built successfully.")
+    print("All revised principal datasets were built successfully.")
     print()
     print("Principal outputs:")
     print("-", output_path(ess4, "without_weights"))

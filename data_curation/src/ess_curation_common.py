@@ -1,8 +1,10 @@
 """Shared utilities for ESS Round 4 and Round 8 data curation.
 
-This module contains only round-independent operations. Round-specific
-variables, item mappings, coding directions, and expected values belong in
-``ess4_config.py`` and ``ess8_config.py``.
+This module contains only round-independent operations. The principal
+analysis sample retains all adult respondents regardless of belief
+missingness, while preserving a flag for the historical CCA missingness
+criterion. Round-specific variables, item mappings, coding directions,
+and expected values belong in ``ess4_config.py`` and ``ess8_config.py``.
 """
 
 from __future__ import annotations
@@ -252,16 +254,92 @@ def strict_row_mean(
 def add_belief_missingness(
     dataframe: pd.DataFrame,
     belief_columns: Sequence[str],
+    *,
+    cca_maximum_missing_beliefs: int | None = None,
 ) -> pd.DataFrame:
-    """Add counts of missing and available constructed belief variables."""
+    """Add belief-missingness counts and, optionally, CCA eligibility.
+
+    No respondent is removed by this function.
+
+    Parameters
+    ----------
+    dataframe:
+        Respondent-level dataframe containing the constructed beliefs.
+    belief_columns:
+        Constructed belief variables used to calculate missingness.
+    cca_maximum_missing_beliefs:
+        Historical CCA threshold. When supplied, the Boolean column
+        ``cca_missingness_eligible`` is added and indicates whether a
+        respondent has no more than this number of missing beliefs.
+    """
     require_columns(dataframe, belief_columns, context="belief dataframe")
 
+    if (
+        cca_maximum_missing_beliefs is not None
+        and cca_maximum_missing_beliefs < 0
+    ):
+        raise ValueError(
+            "cca_maximum_missing_beliefs must be non-negative or None"
+        )
+
     result = dataframe.copy()
-    result["n_belief_missing"] = result.loc[:, belief_columns].isna().sum(axis=1)
+    result["n_belief_missing"] = (
+        result.loc[:, belief_columns].isna().sum(axis=1)
+    )
     result["n_belief_available"] = (
         len(belief_columns) - result["n_belief_missing"]
     )
+
+    if cca_maximum_missing_beliefs is not None:
+        result["cca_missingness_eligible"] = (
+            result["n_belief_missing"]
+            .le(cca_maximum_missing_beliefs)
+            .astype(bool)
+        )
+
     return result
+
+
+def apply_analysis_sample_rule(
+    dataframe: pd.DataFrame,
+    belief_columns: Sequence[str],
+    *,
+    age_column: str = "agea",
+    minimum_age: int = 18,
+    cca_maximum_missing_beliefs: int = 2,
+) -> pd.DataFrame:
+    """Create the principal adult analysis sample without a missingness cutoff.
+
+    Respondents are retained when their age is at least ``minimum_age`` or
+    when age is missing. Respondents are *not* removed because of the number
+    of missing constructed beliefs.
+
+    The returned dataframe contains:
+
+    - ``n_belief_missing``;
+    - ``n_belief_available``; and
+    - ``cca_missingness_eligible``, which records whether the respondent
+      satisfies the historical CCA rule of no more than
+      ``cca_maximum_missing_beliefs`` missing beliefs.
+
+    Missing belief values remain missing and are not imputed.
+    """
+    require_columns(
+        dataframe,
+        [age_column, *belief_columns],
+        context="analysis sample-rule input",
+    )
+
+    with_missingness = add_belief_missingness(
+        dataframe,
+        belief_columns,
+        cca_maximum_missing_beliefs=cca_maximum_missing_beliefs,
+    )
+
+    age = to_numeric_clean(with_missingness[age_column])
+    adult_or_missing_age = age.ge(minimum_age) | age.isna()
+
+    return with_missingness.loc[adult_or_missing_age].copy()
 
 
 def apply_cca_sample_rule(
@@ -272,27 +350,27 @@ def apply_cca_sample_rule(
     minimum_age: int = 18,
     maximum_missing_beliefs: int = 2,
 ) -> pd.DataFrame:
-    """Apply the shared initial CCA sample rule.
+    """Reproduce the historical CCA-restricted sample.
 
-    Respondents are retained when their age is at least ``minimum_age`` or
-    missing, and no more than ``maximum_missing_beliefs`` constructed beliefs
-    are missing.
+    This compatibility function retains respondents whose age is at least
+    ``minimum_age`` or missing and who have no more than
+    ``maximum_missing_beliefs`` missing constructed beliefs.
+
+    It is retained only for reproducing and validating Van Noord et al.'s CCA
+    sample. New principal datasets should use :func:`apply_analysis_sample_rule`
+    instead.
     """
-    require_columns(
+    analysis_sample = apply_analysis_sample_rule(
         dataframe,
-        [age_column, *belief_columns],
-        context="CCA sample-rule input",
+        belief_columns,
+        age_column=age_column,
+        minimum_age=minimum_age,
+        cca_maximum_missing_beliefs=maximum_missing_beliefs,
     )
 
-    with_missingness = add_belief_missingness(dataframe, belief_columns)
-    age = to_numeric_clean(with_missingness[age_column])
-    adult_or_missing_age = age.ge(minimum_age) | age.isna()
-
-    keep = (
-        adult_or_missing_age
-        & with_missingness["n_belief_missing"].le(maximum_missing_beliefs)
-    )
-    return with_missingness.loc[keep].copy()
+    return analysis_sample.loc[
+        analysis_sample["cca_missingness_eligible"]
+    ].copy()
 
 
 def split_weighted_and_unweighted(
