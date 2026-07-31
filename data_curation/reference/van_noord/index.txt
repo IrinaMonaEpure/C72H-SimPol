@@ -1,0 +1,42 @@
+These descriptions are based on the analyses on ESS Round 8, but files for ESS Round 4 are near-identical. One difference is that the Stata script is not present for Round 4, since we do not perform the vote behavior analysis for that round.
+
+DATA FILES
+--- df_ESS8.RData
+This is the result of the script 'Data cleaning_ESS8.R'. It is the cleaned version of the ESS Round 8 data file - can be used for analyses.
+
+--- countries_cca.RData
+This is the result of the modified CCA function that was used for all analyses. Since the modified CCA function contains a random element, exact recreation of this file is not possible (seed was not saved). However, re-running the modified CCA function should create new results that are only marginally different from this data.
+
+--- Votebehavior_ESS_8_expanded.csv
+This is imported during creation of df_ESS8.RData in the script 'Data cleaning_ESS8.R'. It describes whether political parties fall under 'loyalty' or 'voice' (and subcategories thereof). It is based on the Popu-List.
+
+SCRIPTS
+--- Data cleaning_ESS8.R
+- Downloads and cleans Round 8 of the European Social Survey.
+
+--- Modified CCA function.R
+--The functions that are used for the modified CCA function. Original CCA package is not needed. Run the script and then in 'CCA analysis.R', the new CCA function can be called.
+
+--- Functions.R
+- Various functions used during analyses (graphs, cleaning regression results, etc.)
+
+--- CCA analysis.R
+- This is the first file with analyses. This either executes the modified CCA function or imports countries_cca.RData, and cleans these results so that they can be used for further analyses. Also merges these results with the main ESS dataframe.
+
+--- General analyses.R
+- This performs some general analyses, mostly as a basis for further analysis (e.g. creating network graphs and exporting these, calculating Pearson correlations between belief systems, calculating descriptive statistics of the belief systems, etc.).
+
+--- Group analysis.R
+- This performs the community detection method on the belief systems network and analyzes these results.
+
+--- Regression analyses.R
+- Regression analyses on belief system/group membership and vote behavior.
+
+--- Multilevel Multinomial in Stata.do
+- Stata script that performs the multilevel multinomial. Use Regression analyses.R to create the data file, use this script to perform the analyses and export the results back into Regression analyses.R for creation of the graph.
+
+--- Robustness check.R
+- The script used for the robustness check (re-running cca with 50% of respondents per country).
+
+--- SEM tests.R
+- The script used for comparing the belief systems with each other in a SEM framework.

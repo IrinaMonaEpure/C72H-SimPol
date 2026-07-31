@@ -1,0 +1,9 @@
+# Direct Python dependencies for the ESS4/ESS8 curation workflow.
+# Recommended Python version: 3.10 or later.
+
+numpy>=1.24,<3
+pandas>=2.0,<3
+pyreadr>=0.5,<1
+jupyterlab>=4,<5
+notebook>=7,<8
+ipykernel>=6,<7
