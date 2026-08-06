@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+
+  <!-- property keys -->
+  <key id="key0" for="node" attr.name="belief" attr.type="string" />
+  <key id="key1" for="edge" attr.name="weight" attr.type="float" />
+
+  <graph id="G" edgedefault="undirected" parse.nodeids="canonical" parse.edgeids="canonical" parse.order="nodesfirst">
+
+   <!-- graph properties -->
+
+   <!-- vertices -->
+    <node id="n0">
+      <data key="key0">left_right_identification</data>
+    </node>
+    <node id="n1">
+      <data key="key0">gender_inequality</data>
+    </node>
+    <node id="n2">
+      <data key="key0">anti_lgbt</data>
+    </node>
+    <node id="n3">
+      <data key="key0">euroscepticism</data>
+    </node>
+    <node id="n4">
+      <data key="key0">anti_immigration</data>
+    </node>
+    <node id="n5">
+      <data key="key0">anti_egalitarianism</data>
+    </node>
+    <node id="n6">
+      <data key="key0">benefits_harm_economy</data>
+    </node>
+    <node id="n7">
+      <data key="key0">benefits_harm_society</data>
+    </node>
+    <node id="n8">
+      <data key="key0">welfare_chauvinism</data>
+    </node>
+    <node id="n9">
+      <data key="key0">anti_economic_interventionism</data>
+    </node>
+    <node id="n10">
+      <data key="key0">anti_social_benefits_low_income</data>
+    </node>
+    <node id="n11">
+      <data key="key0">anti_social_benefits_parents</data>
+    </node>
+    <node id="n12">
+      <data key="key0">educational_spending</data>
+    </node>
+    <node id="n13">
+      <data key="key0">anti_basic_income</data>
+    </node>
+    <node id="n14">
+      <data key="key0">anti_climate_change_taxes</data>
+    </node>
+    <node id="n15">
+      <data key="key0">anti_climate_change_renewables</data>
+    </node>
+    <node id="n16">
+      <data key="key0">anti_climate_ban_appliances</data>
+    </node>
+    <node id="n17">
+      <data key="key0">climate_skepticism</data>
+    </node>
+    <node id="n18">
+      <data key="key0">authoritarianism</data>
+    </node>
+    <node id="n19">
+      <data key="key0">anti_libertarianism</data>
+    </node>
+
+   <!-- edges -->
+    <edge id="e0" source="n0" target="n11">
+      <data key="key1">0.051163924821260254</data>
+    </edge>
+    <edge id="e1" source="n0" target="n12">
+      <data key="key1">0.051163924821260254</data>
+    </edge>
+    <edge id="e2" source="n1" target="n2">
+      <data key="key1">0.10870475788325873</data>
+    </edge>
+    <edge id="e3" source="n1" target="n19">
+      <data key="key1">0.064430900028551077</data>
+    </edge>
+    <edge id="e4" source="n2" target="n3">
+      <data key="key1">-0.16146358019247717</data>
+    </edge>
+    <edge id="e5" source="n2" target="n18">
+      <data key="key1">-0.13682741779276925</data>
+    </edge>
+    <edge id="e6" source="n3" target="n0">
+      <data key="key1">-0.082003593505223071</data>
+    </edge>
+    <edge id="e7" source="n3" target="n9">
+      <data key="key1">-0.083948561658272122</data>
+    </edge>
+    <edge id="e8" source="n3" target="n18">
+      <data key="key1">0.049375992800357912</data>
+    </edge>
+    <edge id="e9" source="n3" target="n6">
+      <data key="key1">-0.072396041010518997</data>
+    </edge>
+    <edge id="e10" source="n3" target="n8">
+      <data key="key1">0.066490202126834957</data>
+    </edge>
+    <edge id="e11" source="n3" target="n17">
+      <data key="key1">0.066490202126834957</data>
+    </edge>
+    <edge id="e12" source="n3" target="n7">
+      <data key="key1">0.046950003219373204</data>
+    </edge>
+    <edge id="e13" source="n4" target="n15">
+      <data key="key1">0.047296251733526459</data>
+    </edge>
+    <edge id="e14" source="n4" target="n2">
+      <data key="key1">-0.094285960167048072</data>
+    </edge>
+    <edge id="e15" source="n4" target="n5">
+      <data key="key1">0.11313797142185744</data>
+    </edge>
+    <edge id="e16" source="n4" target="n3">
+      <data key="key1">0.071120029755861555</data>
+    </edge>
+    <edge id="e17" source="n4" target="n1">
+      <data key="key1">-0.077732586768752596</data>
+    </edge>
+    <edge id="e18" source="n4" target="n8">
+      <data key="key1">0.25489938475672891</data>
+    </edge>
+    <edge id="e19" source="n4" target="n0">
+      <data key="key1">-0.045838559610827598</data>
+    </edge>
+    <edge id="e20" source="n5" target="n15">
+      <data key="key1">-0.088142675474962504</data>
+    </edge>
+    <edge id="e21" source="n5" target="n3">
+      <data key="key1">0.052222221349976491</data>
+    </edge>
+    <edge id="e22" source="n5" target="n18">
+      <data key="key1">0.11295787667220675</data>
+    </edge>
+    <edge id="e23" source="n5" target="n9">
+      <data key="key1">-0.1291503129689168</data>
+    </edge>
+    <edge id="e24" source="n5" target="n10">
+      <data key="key1">-0.042330237740671808</data>
+    </edge>
+    <edge id="e25" source="n5" target="n0">
+      <data key="key1">-0.033658470259054399</data>
+    </edge>
+    <edge id="e26" source="n5" target="n14">
+      <data key="key1">0.076322934836666398</data>
+    </edge>
+    <edge id="e27" source="n5" target="n1">
+      <data key="key1">0.094991680987432062</data>
+    </edge>
+    <edge id="e28" source="n5" target="n19">
+      <data key="key1">0.051859473485010556</data>
+    </edge>
+    <edge id="e29" source="n5" target="n12">
+      <data key="key1">-0.078855165392242715</data>
+    </edge>
+    <edge id="e30" source="n5" target="n2">
+      <data key="key1">-0.12317274558377418</data>
+    </edge>
+    <edge id="e31" source="n6" target="n9">
+      <data key="key1">0.046756195172419364</data>
+    </edge>
+    <edge id="e32" source="n6" target="n5">
+      <data key="key1">-0.12319749505894668</data>
+    </edge>
+    <edge id="e33" source="n6" target="n4">
+      <data key="key1">0.042234816528010602</data>
+    </edge>
+    <edge id="e34" source="n6" target="n13">
+      <data key="key1">-0.04882345361295852</data>
+    </edge>
+    <edge id="e35" source="n6" target="n14">
+      <data key="key1">-0.055813049509743633</data>
+    </edge>
+    <edge id="e36" source="n6" target="n7">
+      <data key="key1">-0.25147802563764088</data>
+    </edge>
+    <edge id="e37" source="n6" target="n16">
+      <data key="key1">0.18444142051757512</data>
+    </edge>
+    <edge id="e38" source="n7" target="n0">
+      <data key="key1">0.053333631136961566</data>
+    </edge>
+    <edge id="e39" source="n7" target="n17">
+      <data key="key1">-0.047486467138526514</data>
+    </edge>
+    <edge id="e40" source="n7" target="n1">
+      <data key="key1">0.12053219820257979</data>
+    </edge>
+    <edge id="e41" source="n7" target="n10">
+      <data key="key1">-0.056181110628197216</data>
+    </edge>
+    <edge id="e42" source="n9" target="n12">
+      <data key="key1">0.068185749435856619</data>
+    </edge>
+    <edge id="e43" source="n9" target="n18">
+      <data key="key1">-0.05841895327363527</data>
+    </edge>
+    <edge id="e44" source="n9" target="n19">
+      <data key="key1">0.048933500603054812</data>
+    </edge>
+    <edge id="e45" source="n9" target="n1">
+      <data key="key1">-0.058292454661196563</data>
+    </edge>
+    <edge id="e46" source="n9" target="n2">
+      <data key="key1">0.13962552272139445</data>
+    </edge>
+    <edge id="e47" source="n10" target="n9">
+      <data key="key1">-0.07935885933214637</data>
+    </edge>
+    <edge id="e48" source="n10" target="n16">
+      <data key="key1">-0.056166262201011029</data>
+    </edge>
+    <edge id="e49" source="n11" target="n9">
+      <data key="key1">0.051163924821260254</data>
+    </edge>
+    <edge id="e50" source="n11" target="n16">
+      <data key="key1">0.045028090284736901</data>
+    </edge>
+    <edge id="e51" source="n11" target="n17">
+      <data key="key1">-0.053426064737646183</data>
+    </edge>
+    <edge id="e52" source="n11" target="n14">
+      <data key="key1">0.072916801110434373</data>
+    </edge>
+    <edge id="e53" source="n11" target="n10">
+      <data key="key1">0.089695790305098333</data>
+    </edge>
+    <edge id="e54" source="n11" target="n18">
+      <data key="key1">-0.039674491931989637</data>
+    </edge>
+    <edge id="e55" source="n11" target="n12">
+      <data key="key1">-0.10039971012603391</data>
+    </edge>
+    <edge id="e56" source="n12" target="n6">
+      <data key="key1">0.12306986768566189</data>
+    </edge>
+    <edge id="e57" source="n12" target="n17">
+      <data key="key1">-0.053426064737646183</data>
+    </edge>
+    <edge id="e58" source="n12" target="n15">
+      <data key="key1">-0.046619110446015674</data>
+    </edge>
+    <edge id="e59" source="n12" target="n10">
+      <data key="key1">-0.17315247845036602</data>
+    </edge>
+    <edge id="e60" source="n13" target="n11">
+      <data key="key1">0.19366923817463341</data>
+    </edge>
+    <edge id="e61" source="n13" target="n7">
+      <data key="key1">-0.10223259491346381</data>
+    </edge>
+    <edge id="e62" source="n13" target="n0">
+      <data key="key1">-0.042854525007783834</data>
+    </edge>
+    <edge id="e63" source="n13" target="n1">
+      <data key="key1">0.058772840738704916</data>
+    </edge>
+    <edge id="e64" source="n13" target="n5">
+      <data key="key1">-0.077028203948690505</data>
+    </edge>
+    <edge id="e65" source="n13" target="n15">
+      <data key="key1">0.065275735663518727</data>
+    </edge>
+    <edge id="e66" source="n13" target="n9">
+      <data key="key1">0.051163924821260254</data>
+    </edge>
+    <edge id="e67" source="n13" target="n3">
+      <data key="key1">0.085633145828847554</data>
+    </edge>
+    <edge id="e68" source="n13" target="n12">
+      <data key="key1">-0.10966224137908201</data>
+    </edge>
+    <edge id="e69" source="n14" target="n15">
+      <data key="key1">0.10401857630535177</data>
+    </edge>
+    <edge id="e70" source="n14" target="n2">
+      <data key="key1">-0.10315739875829588</data>
+    </edge>
+    <edge id="e71" source="n15" target="n19">
+      <data key="key1">0.10234485936392165</data>
+    </edge>
+    <edge id="e72" source="n15" target="n6">
+      <data key="key1">0.040408037461260586</data>
+    </edge>
+    <edge id="e73" source="n15" target="n7">
+      <data key="key1">0.068043880922623923</data>
+    </edge>
+    <edge id="e74" source="n15" target="n17">
+      <data key="key1">-0.10036528132426227</data>
+    </edge>
+    <edge id="e75" source="n16" target="n14">
+      <data key="key1">-0.20786722816103953</data>
+    </edge>
+    <edge id="e76" source="n16" target="n15">
+      <data key="key1">-0.28154081060734559</data>
+    </edge>
+    <edge id="e77" source="n16" target="n0">
+      <data key="key1">0.036118277298464216</data>
+    </edge>
+    <edge id="e78" source="n16" target="n4">
+      <data key="key1">0.071101233036261313</data>
+    </edge>
+    <edge id="e79" source="n18" target="n17">
+      <data key="key1">0.066028345502601699</data>
+    </edge>
+    <edge id="e80" source="n18" target="n16">
+      <data key="key1">0.065785595422103035</data>
+    </edge>
+    <edge id="e81" source="n18" target="n7">
+      <data key="key1">-0.075918491882156977</data>
+    </edge>
+    <edge id="e82" source="n18" target="n1">
+      <data key="key1">0.064430900028551077</data>
+    </edge>
+    <edge id="e83" source="n18" target="n8">
+      <data key="key1">0.063126005138971861</data>
+    </edge>
+    <edge id="e84" source="n19" target="n4">
+      <data key="key1">0.065252485997262133</data>
+    </edge>
+    <edge id="e85" source="n19" target="n2">
+      <data key="key1">-0.13682741779276925</data>
+    </edge>
+    <edge id="e86" source="n19" target="n18">
+      <data key="key1">-0.22578055275501949</data>
+    </edge>
+    <edge id="e87" source="n19" target="n10">
+      <data key="key1">-0.073470011013615555</data>
+    </edge>
+    <edge id="e88" source="n19" target="n6">
+      <data key="key1">-0.068134324956159037</data>
+    </edge>
+
+  </graph>
+</graphml>

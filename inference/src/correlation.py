@@ -52,11 +52,15 @@ def generate_partial_correlation_matrix(
     question_end_col=None,
     question_cols=None,
     impute_strategy="median",
+    flip_dim=None,
 ):
     if question_cols is not None:
         X = df[question_cols]
     else:
         X = df.iloc[:, question_start_col:question_end_col]
+    
+    if flip_dim is not None and flip_dim in X.columns:
+        X[flip_dim] = 1 - X[flip_dim]
 
     X = X.apply(pd.to_numeric, errors="coerce")
 

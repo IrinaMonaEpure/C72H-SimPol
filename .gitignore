@@ -62,3 +62,14 @@ inference/output/figures/
 inference/output/networks/*.pkl
 inference/output/comparison/
 inference/output/*.zip
+inference/output/output.png
+
+# Pickled networks (regenerable from the .graphml results)
+inference/output/networks/**/*.pkl
+
+# Alternate-coding flip inputs (regenerable via generate_alternate_coding.py)
+inference/output/networks/random_flip/**/flipped_data_*.csv
+
+# Run logs
+inference/src/*.log
+inference/src/flip_logs/

@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--num-dims", type=int, default=1, help="Number of dimensions to flip")
     parser.add_argument("--cntry", type=str, help="Country code to filter the data")
     parser.add_argument("--num-samples", type=int, default=100, help="Number of alternate coding samples to generate")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
     args = parser.parse_args()
 
     print(f"Generating alternate coding for {args.num_dims} dimensions. Country filter: {args.cntry if args.cntry else 'None'}")
@@ -46,6 +47,9 @@ def main():
             raise ValueError(f"Country code {args.cntry} not found in the data")
 
     out_dir = os.path.join(OUT_DIR, "random_flip", f"{args.cntry}_{args.num_dims}_dims")
+
+    if args.seed is not None:
+        random.seed(args.seed)
 
     os.makedirs(out_dir, exist_ok=True)
 
