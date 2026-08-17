@@ -7,3 +7,4 @@ dependencies:
   - seaborn
   - matplotlib
   - networkx
+  - tqdm
