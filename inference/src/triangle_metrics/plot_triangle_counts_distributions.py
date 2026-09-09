@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -8,35 +11,59 @@ from tqdm import tqdm
 
 
 METRICS = {
-    "ratio_three_negative": "Ratio of 3-negative triangles",
-    "ratio_two_positive_one_negative": "Ratio of 2-positive, 1-negative triangles",
-    "overall_mean_absolute_weight": "Mean absolute weight — all triangles",
-    "three_negative_mean_absolute_weight": "Mean absolute weight — 3-negative",
-    "two_positive_one_negative_mean_absolute_weight": (
-        "Mean absolute weight — 2-positive, 1-negative"
+    "ratio_three_negative": (
+        "Ratio of 3-negative triangles"
     ),
-    "overall_mean_onnela_geometric_mean": "Onnela intensity — all triangles",
-    "three_negative_mean_onnela_geometric_mean": (
-        "Onnela intensity — 3-negative"
+    "ratio_two_positive_one_negative": (
+        "Ratio of 2-positive, 1-negative triangles"
     ),
-    "two_positive_one_negative_mean_onnela_geometric_mean": (
-        "Onnela intensity — 2-positive, 1-negative"
+    "ratio_imbalanced": (
+        "Ratio of imbalanced triangles"
+    ),
+    "three_negative_absolute_weight_sum": (
+        "Sum of absolute weights — 3-negative"
+    ),
+    "two_positive_one_negative_absolute_weight_sum": (
+        "Sum of absolute weights — 2-positive, 1-negative"
+    ),
+    "imbalanced_absolute_weight_sum": (
+        "Sum of absolute weights — imbalanced"
+    ),
+    "three_negative_onnela_intensity_sum": (
+        "Sum of Onnela intensity — 3-negative"
+    ),
+    "two_positive_one_negative_onnela_intensity_sum": (
+        "Sum of Onnela intensity — 2-positive, 1-negative"
+    ),
+    "imbalanced_onnela_intensity_sum": (
+        "Sum of Onnela intensity — imbalanced"
     ),
 }
 
 
-def get_edge_weight(G, u, v, weight_attribute="weight"):
+def get_edge_weight(
+    G,
+    u,
+    v,
+    weight_attribute="weight",
+):
     edge_data = G.get_edge_data(u, v)
 
     if edge_data is None:
-        raise KeyError(f"No edge found between {u!r} and {v!r}.")
+        raise KeyError(
+            f"No edge found between {u!r} and {v!r}."
+        )
 
     if G.is_multigraph():
         if len(edge_data) != 1:
             raise ValueError(
-                f"Multiple edges found between {u!r} and {v!r}."
+                f"Multiple edges found between "
+                f"{u!r} and {v!r}."
             )
-        edge_data = next(iter(edge_data.values()))
+
+        edge_data = next(
+            iter(edge_data.values())
+        )
 
     if weight_attribute not in edge_data:
         raise KeyError(
@@ -44,29 +71,58 @@ def get_edge_weight(G, u, v, weight_attribute="weight"):
             f"{weight_attribute!r} attribute."
         )
 
-    return float(edge_data[weight_attribute])
+    return float(
+        edge_data[weight_attribute]
+    )
 
 
-def calculate_triangle_weight_metrics(weights):
+def calculate_triangle_weight_metrics(
+    weights,
+):
+    """
+    Calculate weighted metrics for one triangle.
+
+    Returns
+    -------
+    absolute_weight_sum
+        |w1| + |w2| + |w3|
+
+    onnela_intensity
+        (|w1 * w2 * w3|)^(1/3)
+    """
     absolute_weights = np.abs(
-        np.asarray(weights, dtype=float)
+        np.asarray(
+            weights,
+            dtype=float,
+        )
     )
 
-    absolute_mean = float(
-        np.mean(absolute_weights)
+    absolute_weight_sum = float(
+        np.sum(absolute_weights)
     )
 
-    onnela_geometric_mean = float(
-        np.prod(absolute_weights) ** (1.0 / 3.0)
+    onnela_intensity = float(
+        np.prod(absolute_weights)
+        ** (1.0 / 3.0)
     )
 
-    return absolute_mean, onnela_geometric_mean
+    return (
+        absolute_weight_sum,
+        onnela_intensity,
+    )
 
 
 def calculate_graph_triangle_metrics(
     G,
     weight_attribute="weight",
 ):
+    """
+    Calculate imbalanced signed-triangle metrics.
+
+    Imbalanced triangles are:
+    - 3-negative;
+    - 2-positive, 1-negative.
+    """
     if G.is_directed():
         raise ValueError(
             "Expected an undirected graph."
@@ -77,15 +133,13 @@ def calculate_graph_triangle_metrics(
     three_negative_edges = 0
     two_positive_one_negative = 0
 
-    overall_absolute_sum = 0.0
-    overall_onnela_sum = 0.0
+    three_negative_absolute_weight_sum = 0.0
+    two_positive_one_negative_absolute_weight_sum = 0.0
 
-    three_negative_absolute_sum = 0.0
-    three_negative_onnela_sum = 0.0
+    three_negative_onnela_intensity_sum = 0.0
+    two_positive_one_negative_onnela_intensity_sum = 0.0
 
-    two_positive_one_negative_absolute_sum = 0.0
-    two_positive_one_negative_onnela_sum = 0.0
-
+    # Ensure each triangle is visited once.
     node_order = {
         node: i
         for i, node in enumerate(
@@ -139,16 +193,7 @@ def calculate_graph_triangle_metrics(
                     ),
                 ]
 
-                absolute_mean, onnela = (
-                    calculate_triangle_weight_metrics(
-                        weights
-                    )
-                )
-
                 total_triangles += 1
-
-                overall_absolute_sum += absolute_mean
-                overall_onnela_sum += onnela
 
                 negative_count = sum(
                     weight < 0
@@ -160,16 +205,25 @@ def calculate_graph_triangle_metrics(
                     for weight in weights
                 )
 
+                (
+                    absolute_weight_sum,
+                    onnela_intensity,
+                ) = (
+                    calculate_triangle_weight_metrics(
+                        weights
+                    )
+                )
+
                 if negative_count == 3:
 
                     three_negative_edges += 1
 
-                    three_negative_absolute_sum += (
-                        absolute_mean
+                    three_negative_absolute_weight_sum += (
+                        absolute_weight_sum
                     )
 
-                    three_negative_onnela_sum += (
-                        onnela
+                    three_negative_onnela_intensity_sum += (
+                        onnela_intensity
                     )
 
                 elif (
@@ -179,13 +233,28 @@ def calculate_graph_triangle_metrics(
 
                     two_positive_one_negative += 1
 
-                    two_positive_one_negative_absolute_sum += (
-                        absolute_mean
+                    two_positive_one_negative_absolute_weight_sum += (
+                        absolute_weight_sum
                     )
 
-                    two_positive_one_negative_onnela_sum += (
-                        onnela
+                    two_positive_one_negative_onnela_intensity_sum += (
+                        onnela_intensity
                     )
+
+    imbalanced_triangles = (
+        three_negative_edges
+        + two_positive_one_negative
+    )
+
+    imbalanced_absolute_weight_sum = (
+        three_negative_absolute_weight_sum
+        + two_positive_one_negative_absolute_weight_sum
+    )
+
+    imbalanced_onnela_intensity_sum = (
+        three_negative_onnela_intensity_sum
+        + two_positive_one_negative_onnela_intensity_sum
+    )
 
     if total_triangles > 0:
 
@@ -199,91 +268,67 @@ def calculate_graph_triangle_metrics(
             / total_triangles
         )
 
-        overall_mean_absolute_weight = (
-            overall_absolute_sum
-            / total_triangles
-        )
-
-        overall_mean_onnela_geometric_mean = (
-            overall_onnela_sum
+        ratio_imbalanced = (
+            imbalanced_triangles
             / total_triangles
         )
 
     else:
-
         ratio_three_negative = 0.0
         ratio_two_positive_one_negative = 0.0
-
-        overall_mean_absolute_weight = np.nan
-        overall_mean_onnela_geometric_mean = np.nan
-
-    if three_negative_edges > 0:
-
-        three_negative_mean_absolute_weight = (
-            three_negative_absolute_sum
-            / three_negative_edges
-        )
-
-        three_negative_mean_onnela_geometric_mean = (
-            three_negative_onnela_sum
-            / three_negative_edges
-        )
-
-    else:
-
-        three_negative_mean_absolute_weight = np.nan
-        three_negative_mean_onnela_geometric_mean = np.nan
-
-    if two_positive_one_negative > 0:
-
-        two_positive_one_negative_mean_absolute_weight = (
-            two_positive_one_negative_absolute_sum
-            / two_positive_one_negative
-        )
-
-        two_positive_one_negative_mean_onnela_geometric_mean = (
-            two_positive_one_negative_onnela_sum
-            / two_positive_one_negative
-        )
-
-    else:
-
-        two_positive_one_negative_mean_absolute_weight = np.nan
-        two_positive_one_negative_mean_onnela_geometric_mean = np.nan
+        ratio_imbalanced = 0.0
 
     return {
-        "total_triangles": total_triangles,
+        "total_triangles": (
+            total_triangles
+        ),
+
+        "three_negative_edges": (
+            three_negative_edges
+        ),
 
         "ratio_three_negative": (
             ratio_three_negative
+        ),
+
+        "two_positive_one_negative": (
+            two_positive_one_negative
         ),
 
         "ratio_two_positive_one_negative": (
             ratio_two_positive_one_negative
         ),
 
-        "overall_mean_absolute_weight": (
-            overall_mean_absolute_weight
+        "imbalanced_triangles": (
+            imbalanced_triangles
         ),
 
-        "three_negative_mean_absolute_weight": (
-            three_negative_mean_absolute_weight
+        "ratio_imbalanced": (
+            ratio_imbalanced
         ),
 
-        "two_positive_one_negative_mean_absolute_weight": (
-            two_positive_one_negative_mean_absolute_weight
+        "three_negative_absolute_weight_sum": (
+            three_negative_absolute_weight_sum
         ),
 
-        "overall_mean_onnela_geometric_mean": (
-            overall_mean_onnela_geometric_mean
+        "two_positive_one_negative_absolute_weight_sum": (
+            two_positive_one_negative_absolute_weight_sum
         ),
 
-        "three_negative_mean_onnela_geometric_mean": (
-            three_negative_mean_onnela_geometric_mean
+        "imbalanced_absolute_weight_sum": (
+            imbalanced_absolute_weight_sum
         ),
 
-        "two_positive_one_negative_mean_onnela_geometric_mean": (
-            two_positive_one_negative_mean_onnela_geometric_mean
+        "three_negative_onnela_intensity_sum": (
+            three_negative_onnela_intensity_sum
+        ),
+
+        "two_positive_one_negative_onnela_intensity_sum": (
+            two_positive_one_negative_onnela_intensity_sum
+        ),
+
+        "imbalanced_onnela_intensity_sum": (
+            imbalanced_onnela_intensity_sum
         ),
     }
 
@@ -311,9 +356,11 @@ def analyse_flipped_networks(
 
         G = nx.read_graphml(path)
 
-        metrics = calculate_graph_triangle_metrics(
-            G,
-            weight_attribute=weight_attribute,
+        metrics = (
+            calculate_graph_triangle_metrics(
+                G,
+                weight_attribute=weight_attribute,
+            )
         )
 
         if experiment == "one_dimension":
@@ -321,7 +368,9 @@ def analyse_flipped_networks(
             # Example:
             # GB_anti_immigration_flipped.graphml
 
-            country = path.stem.split("_", 1)[0]
+            country = (
+                path.stem.split("_", 1)[0]
+            )
 
             suffix = "_flipped"
 
@@ -331,22 +380,25 @@ def analyse_flipped_networks(
                 ]
             )
 
-            if name_without_country.endswith(suffix):
+            if name_without_country.endswith(
+                suffix
+            ):
                 dimension = (
                     name_without_country[
                         :-len(suffix)
                     ]
                 )
             else:
-                dimension = name_without_country
+                dimension = (
+                    name_without_country
+                )
 
             sample = dimension
 
         elif experiment == "five_dimension":
 
-            # Folder itself contains country:
-            #
-            # .../networks/GB/GB_0.graphml
+            # Example:
+            # random_flip/networks/GB/GB_0.graphml
 
             country = path.parent.name
             sample = path.stem
@@ -354,7 +406,8 @@ def analyse_flipped_networks(
         else:
             raise ValueError(
                 "experiment must be "
-                "'one_dimension' or 'five_dimension'"
+                "'one_dimension' or "
+                "'five_dimension'"
             )
 
         rows.append(
@@ -369,6 +422,41 @@ def analyse_flipped_networks(
     return pd.DataFrame(rows)
 
 
+def load_baseline_metrics(
+    baseline_csv,
+):
+    """
+    Load triangle metrics for the original networks.
+
+    Expects the new signed_triangle_counts_expanded.csv.
+    """
+    baseline_df = pd.read_csv(
+        baseline_csv
+    )
+
+    baseline_df["country"] = (
+        baseline_df["graph_name"]
+        .astype(str)
+    )
+
+    missing_metrics = [
+        metric
+        for metric in METRICS
+        if metric not in baseline_df.columns
+    ]
+
+    if missing_metrics:
+        raise ValueError(
+            "Baseline CSV is missing the "
+            "following columns:\n"
+            + "\n".join(
+                missing_metrics
+            )
+        )
+
+    return baseline_df
+
+
 def plot_country_distributions(
     df,
     baseline_df,
@@ -377,12 +465,15 @@ def plot_country_distributions(
     bins="auto",
 ):
     """
-    Make one 2 x 4 figure for every country.
+    Make one 3 x 3 histogram figure per country.
 
-    Histograms show the distribution over flipped networks.
-    Dashed vertical lines show the corresponding baseline value.
+    Histograms show flipped-network distributions.
+    Dashed vertical lines show the original-network values.
     """
-    output_folder = Path(output_folder)
+    output_folder = Path(
+        output_folder
+    )
+
     output_folder.mkdir(
         parents=True,
         exist_ok=True,
@@ -399,27 +490,33 @@ def plot_country_distributions(
         ]
 
         baseline_row = baseline_df[
-            baseline_df["country"] == country
+            baseline_df["country"]
+            == country
         ]
 
         if baseline_row.empty:
             print(
-                f"No baseline found for {country}; "
-                "skipping."
+                f"No baseline found for "
+                f"{country}; skipping."
             )
             continue
 
-        baseline_row = baseline_row.iloc[0]
+        baseline_row = (
+            baseline_row.iloc[0]
+        )
 
         fig, axes = plt.subplots(
-            2,
-            4,
-            figsize=(18, 9),
+            3,
+            3,
+            figsize=(18, 13),
         )
 
         axes = axes.flatten()
 
-        for ax, (metric, label) in zip(
+        for ax, (
+            metric,
+            label,
+        ) in zip(
             axes,
             METRICS.items(),
         ):
@@ -431,7 +528,11 @@ def plot_country_distributions(
 
             baseline_value = pd.to_numeric(
                 pd.Series(
-                    [baseline_row[metric]]
+                    [
+                        baseline_row[
+                            metric
+                        ]
+                    ]
                 ),
                 errors="coerce",
             ).iloc[0]
@@ -445,13 +546,17 @@ def plot_country_distributions(
                     alpha=0.75,
                 )
 
-            if pd.notna(baseline_value):
+            if pd.notna(
+                baseline_value
+            ):
 
                 ax.axvline(
                     baseline_value,
                     linestyle="--",
                     linewidth=2,
-                    label="Original network",
+                    label=(
+                        "Original network"
+                    ),
                 )
 
             ax.set_title(
@@ -462,13 +567,16 @@ def plot_country_distributions(
             ax.set_xlabel("Value")
             ax.set_ylabel("Count")
 
-            if pd.notna(baseline_value):
+            if pd.notna(
+                baseline_value
+            ):
                 ax.legend(
-                    fontsize=8,
+                    fontsize=8
                 )
 
         fig.suptitle(
-            f"{country} — {experiment_name}",
+            f"{country} — "
+            f"{experiment_name}",
             fontsize=14,
         )
 
@@ -476,33 +584,15 @@ def plot_country_distributions(
 
         fig.savefig(
             output_folder
-            / f"{country}_triangle_distributions.png",
+            / (
+                f"{country}_"
+                "triangle_distributions.png"
+            ),
             dpi=300,
             bbox_inches="tight",
         )
 
         plt.close(fig)
-
-
-def load_baseline_metrics(
-    baseline_csv,
-):
-    """
-    Load the metrics calculated for the original networks.
-
-    Expects the CSV produced by the expanded signed-triangle script.
-    """
-    baseline_df = pd.read_csv(
-        baseline_csv
-    )
-
-    # Your existing CSV uses graph_name for the country code.
-    baseline_df["country"] = (
-        baseline_df["graph_name"]
-        .astype(str)
-    )
-
-    return baseline_df
 
 
 def plot_one_dimension_country_points(
@@ -511,12 +601,15 @@ def plot_one_dimension_country_points(
     output_folder,
 ):
     """
-    Make one 2 x 4 figure per country for the one-dimension flip experiment.
+    Make one 3 x 3 figure per country for one-dimension flips.
 
-    Each point represents one flipped dimension.
-    The dashed horizontal line shows the value for the original network.
+    Each point is one flipped dimension.
+    The dashed horizontal line is the original-network value.
     """
-    output_folder = Path(output_folder)
+    output_folder = Path(
+        output_folder
+    )
+
     output_folder.mkdir(
         parents=True,
         exist_ok=True,
@@ -527,49 +620,71 @@ def plot_one_dimension_country_points(
     )
 
     for country in countries:
+
         country_df = (
-            df[df["country"] == country]
+            df[
+                df["country"] == country
+            ]
             .copy()
             .sort_values("sample")
         )
 
         baseline_row = baseline_df[
-            baseline_df["country"] == country
+            baseline_df["country"]
+            == country
         ]
 
         if baseline_row.empty:
             print(
-                f"No baseline found for {country}; skipping."
+                f"No baseline found for "
+                f"{country}; skipping."
             )
             continue
 
-        baseline_row = baseline_row.iloc[0]
+        baseline_row = (
+            baseline_row.iloc[0]
+        )
 
         fig, axes = plt.subplots(
-            2,
-            4,
-            figsize=(22, 10),
+            3,
+            3,
+            figsize=(22, 14),
         )
 
         axes = axes.flatten()
 
-        for ax, (metric, label) in zip(
+        for ax, (
+            metric,
+            label,
+        ) in zip(
             axes,
             METRICS.items(),
         ):
+
             values = pd.to_numeric(
                 country_df[metric],
                 errors="coerce",
             )
 
-            dimensions = country_df["sample"].astype(str)
+            dimensions = (
+                country_df["sample"]
+                .astype(str)
+            )
 
             baseline_value = pd.to_numeric(
-                pd.Series([baseline_row[metric]]),
+                pd.Series(
+                    [
+                        baseline_row[
+                            metric
+                        ]
+                    ]
+                ),
                 errors="coerce",
             ).iloc[0]
 
-            x = np.arange(len(country_df))
+            x = np.arange(
+                len(country_df)
+            )
 
             valid = values.notna()
 
@@ -580,16 +695,22 @@ def plot_one_dimension_country_points(
                 zorder=3,
             )
 
-            if pd.notna(baseline_value):
+            if pd.notna(
+                baseline_value
+            ):
+
                 ax.axhline(
                     baseline_value,
                     linestyle="--",
                     linewidth=1.5,
-                    label="Original network",
+                    label=(
+                        "Original network"
+                    ),
                     zorder=2,
                 )
 
             ax.set_xticks(x)
+
             ax.set_xticklabels(
                 dimensions,
                 rotation=60,
@@ -602,21 +723,29 @@ def plot_one_dimension_country_points(
                 fontsize=10,
             )
 
-            ax.set_xlabel("Flipped dimension")
-            ax.set_ylabel("Value")
+            ax.set_xlabel(
+                "Flipped dimension"
+            )
+
+            ax.set_ylabel(
+                "Value"
+            )
 
             ax.grid(
                 axis="y",
                 alpha=0.25,
             )
 
-            if pd.notna(baseline_value):
+            if pd.notna(
+                baseline_value
+            ):
                 ax.legend(
-                    fontsize=8,
+                    fontsize=8
                 )
 
         fig.suptitle(
-            f"{country} — One-dimension flips",
+            f"{country} — "
+            "One-dimension flips",
             fontsize=14,
         )
 
@@ -624,7 +753,11 @@ def plot_one_dimension_country_points(
 
         fig.savefig(
             output_folder
-            / f"{country}_triangle_metrics_by_dimension.png",
+            / (
+                f"{country}_"
+                "triangle_metrics_"
+                "by_dimension.png"
+            ),
             dpi=300,
             bbox_inches="tight",
         )
@@ -632,18 +765,72 @@ def plot_one_dimension_country_points(
         plt.close(fig)
 
 
+def save_country_metric_summary(
+    df,
+    output_csv_path,
+):
+    """
+    Save mean and standard deviation of all triangle metrics
+    across flipped networks, grouped by country.
+
+    The summary is agnostic to which variable(s) were flipped.
+    """
+    output_csv_path = Path(output_csv_path)
+    output_csv_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    metric_columns = list(METRICS.keys())
+
+    summary = (
+        df
+        .groupby("country")[metric_columns]
+        .agg(["mean", "std"])
+    )
+
+    # Flatten MultiIndex columns:
+    # ratio_three_negative_mean,
+    # ratio_three_negative_std, etc.
+    summary.columns = [
+        f"{metric}_{stat}"
+        for metric, stat in summary.columns
+    ]
+
+    summary = summary.reset_index()
+
+    summary.to_csv(
+        output_csv_path,
+        index=False,
+        float_format="%.3f",
+    )
+
+    return summary
+
+
 def run_triangle_robustness_analysis(
     networks_root,
     baseline_csv,
     output_root,
 ):
-    networks_root = Path(networks_root)
-    output_root = Path(output_root)
+    networks_root = Path(
+        networks_root
+    )
 
-    # Create output directory if it does not exist
-    output_root.mkdir(parents=True, exist_ok=True)
+    output_root = Path(
+        output_root
+    )
 
-    baseline_df = load_baseline_metrics(baseline_csv)
+    output_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    baseline_df = (
+        load_baseline_metrics(
+            baseline_csv
+        )
+    )
 
     # ==================================================
     # 1. ONE-DIMENSION FLIPS
@@ -661,17 +848,30 @@ def run_triangle_robustness_analysis(
     one_dimension_df = (
         analyse_flipped_networks(
             one_dimension_paths,
-            experiment="one_dimension",
+            experiment=(
+                "one_dimension"
+            ),
         )
     )
 
     one_dimension_df.to_csv(
         output_root
-        / "one_dimension_triangle_metrics.csv",
+        / (
+            "one_dimension_"
+            "triangle_metrics.csv"
+        ),
         index=False,
         float_format="%.3f",
     )
 
+    save_country_metric_summary(
+        one_dimension_df,
+        output_root
+        / "one_dimension_triangle_metrics_summary.csv",
+    )
+
+    # Histogram distributions across
+    # the 20 one-dimension flips.
     plot_country_distributions(
         df=one_dimension_df,
         baseline_df=baseline_df,
@@ -685,6 +885,8 @@ def run_triangle_robustness_analysis(
         ),
     )
 
+    # Individual points for each
+    # flipped dimension.
     plot_one_dimension_country_points(
         df=one_dimension_df,
         baseline_df=baseline_df,
@@ -712,15 +914,26 @@ def run_triangle_robustness_analysis(
     five_dimension_df = (
         analyse_flipped_networks(
             five_dimension_paths,
-            experiment="five_dimension",
+            experiment=(
+                "five_dimension"
+            ),
         )
     )
 
     five_dimension_df.to_csv(
         output_root
-        / "five_dimension_triangle_metrics.csv",
+        / (
+            "five_dimension_"
+            "triangle_metrics.csv"
+        ),
         index=False,
         float_format="%.3f",
+    )
+
+    save_country_metric_summary(
+        five_dimension_df,
+        output_root
+        / "five_dimension_triangle_metrics_summary.csv",
     )
 
     plot_country_distributions(
@@ -749,10 +962,10 @@ if __name__ == "__main__":
         ),
         baseline_csv=(
             "../output/"
-            "signed_triangle_counts_expanded.csv"
+            "signed_triangle_counts_expanded_2.csv"
         ),
         output_root=(
             "../plots/"
-            "variable_coding_robustness"
+            "variable_coding_robustness_2"
         ),
     )

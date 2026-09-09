@@ -44,7 +44,7 @@ def get_edge_weight(G, u, v, weight_attribute="weight"):
 
 def calculate_triangle_weight_metrics(weights):
     """
-    Calculate non-negative weighted metrics for one triangle.
+    Calculate weighted metrics for one triangle.
 
     Parameters
     ----------
@@ -54,25 +54,27 @@ def calculate_triangle_weight_metrics(weights):
     Returns
     -------
     tuple[float, float]
-        absolute_mean:
-            Arithmetic mean of the three absolute edge weights.
+        absolute_weight_sum:
+            Sum of the three absolute edge weights:
+            |w1| + |w2| + |w3|.
 
-        onnela_geometric_mean:
-            Geometric mean of the three absolute edge weights.
+        onnela_intensity:
+            Geometric mean of the three absolute edge weights:
+            (|w1 * w2 * w3|)^(1/3).
     """
     absolute_weights = np.abs(
         np.asarray(weights, dtype=float)
     )
 
-    absolute_mean = float(
-        np.mean(absolute_weights)
+    absolute_weight_sum = float(
+        np.sum(absolute_weights)
     )
 
-    onnela_geometric_mean = float(
+    onnela_intensity = float(
         np.prod(absolute_weights) ** (1.0 / 3.0)
     )
 
-    return absolute_mean, onnela_geometric_mean
+    return absolute_weight_sum, onnela_intensity
 
 
 def count_signed_triangles(
@@ -80,19 +82,21 @@ def count_signed_triangles(
     weight_attribute="weight",
 ):
     """
-    Count selected signed triangle types and calculate average
-    weighted metrics.
+    Count signed triangles and aggregate their weighted metrics.
 
-    Metrics are calculated for:
+    Imbalanced triangles are defined as:
+    - three negative edges;
+    - two positive edges and one negative edge.
 
-    - all triangles;
-    - triangles with three negative edges;
-    - triangles with two positive edges and one negative edge.
+    For each selected triangle type, the function calculates:
+    - number of triangles;
+    - sum of absolute edge weights;
+    - sum of Onnela intensities.
 
     Returns
     -------
     dict
-        Triangle counts and average weight metrics.
+        Triangle counts and weighted sums.
     """
     if G.is_directed():
         raise ValueError(
@@ -105,14 +109,11 @@ def count_signed_triangles(
     three_negative_edges = 0
     two_positive_one_negative = 0
 
-    overall_absolute_mean_sum = 0.0
-    overall_onnela_geometric_mean_sum = 0.0
+    three_negative_absolute_weight_sum = 0.0
+    two_positive_one_negative_absolute_weight_sum = 0.0
 
-    three_negative_absolute_mean_sum = 0.0
-    three_negative_onnela_geometric_mean_sum = 0.0
-
-    two_positive_one_negative_absolute_mean_sum = 0.0
-    two_positive_one_negative_onnela_geometric_mean_sum = 0.0
+    three_negative_onnela_intensity_sum = 0.0
+    two_positive_one_negative_onnela_intensity_sum = 0.0
 
     # Ensure every triangle is visited exactly once.
     node_order = {
@@ -166,20 +167,7 @@ def count_signed_triangles(
                     ),
                 ]
 
-                absolute_mean, onnela_geometric_mean = (
-                    calculate_triangle_weight_metrics(
-                        weights
-                    )
-                )
-
                 total_triangles += 1
-
-                overall_absolute_mean_sum += (
-                    absolute_mean
-                )
-                overall_onnela_geometric_mean_sum += (
-                    onnela_geometric_mean
-                )
 
                 negative_count = sum(
                     weight < 0
@@ -191,14 +179,22 @@ def count_signed_triangles(
                     for weight in weights
                 )
 
+                (
+                    absolute_weight_sum,
+                    onnela_intensity,
+                ) = calculate_triangle_weight_metrics(
+                    weights
+                )
+
                 if negative_count == 3:
                     three_negative_edges += 1
 
-                    three_negative_absolute_mean_sum += (
-                        absolute_mean
+                    three_negative_absolute_weight_sum += (
+                        absolute_weight_sum
                     )
-                    three_negative_onnela_geometric_mean_sum += (
-                        onnela_geometric_mean
+
+                    three_negative_onnela_intensity_sum += (
+                        onnela_intensity
                     )
 
                 elif (
@@ -207,80 +203,66 @@ def count_signed_triangles(
                 ):
                     two_positive_one_negative += 1
 
-                    two_positive_one_negative_absolute_mean_sum += (
-                        absolute_mean
-                    )
-                    two_positive_one_negative_onnela_geometric_mean_sum += (
-                        onnela_geometric_mean
+                    two_positive_one_negative_absolute_weight_sum += (
+                        absolute_weight_sum
                     )
 
-    if total_triangles > 0:
-        overall_mean_absolute_weight = (
-            overall_absolute_mean_sum
-            / total_triangles
-        )
+                    two_positive_one_negative_onnela_intensity_sum += (
+                        onnela_intensity
+                    )
 
-        overall_mean_onnela_geometric_mean = (
-            overall_onnela_geometric_mean_sum
-            / total_triangles
-        )
-    else:
-        overall_mean_absolute_weight = np.nan
-        overall_mean_onnela_geometric_mean = np.nan
+    imbalanced_triangles = (
+        three_negative_edges
+        + two_positive_one_negative
+    )
 
-    if three_negative_edges > 0:
-        three_negative_mean_absolute_weight = (
-            three_negative_absolute_mean_sum
-            / three_negative_edges
-        )
+    imbalanced_absolute_weight_sum = (
+        three_negative_absolute_weight_sum
+        + two_positive_one_negative_absolute_weight_sum
+    )
 
-        three_negative_mean_onnela_geometric_mean = (
-            three_negative_onnela_geometric_mean_sum
-            / three_negative_edges
-        )
-    else:
-        three_negative_mean_absolute_weight = np.nan
-        three_negative_mean_onnela_geometric_mean = np.nan
-
-    if two_positive_one_negative > 0:
-        two_positive_one_negative_mean_absolute_weight = (
-            two_positive_one_negative_absolute_mean_sum
-            / two_positive_one_negative
-        )
-
-        two_positive_one_negative_mean_onnela_geometric_mean = (
-            two_positive_one_negative_onnela_geometric_mean_sum
-            / two_positive_one_negative
-        )
-    else:
-        two_positive_one_negative_mean_absolute_weight = np.nan
-        two_positive_one_negative_mean_onnela_geometric_mean = np.nan
+    imbalanced_onnela_intensity_sum = (
+        three_negative_onnela_intensity_sum
+        + two_positive_one_negative_onnela_intensity_sum
+    )
 
     return {
         "total_triangles": total_triangles,
-        "overall_mean_absolute_weight": (
-            overall_mean_absolute_weight
-        ),
-        "overall_mean_onnela_geometric_mean": (
-            overall_mean_onnela_geometric_mean
-        ),
+
         "three_negative_edges": (
             three_negative_edges
         ),
-        "three_negative_mean_absolute_weight": (
-            three_negative_mean_absolute_weight
-        ),
-        "three_negative_mean_onnela_geometric_mean": (
-            three_negative_mean_onnela_geometric_mean
-        ),
+
         "two_positive_one_negative": (
             two_positive_one_negative
         ),
-        "two_positive_one_negative_mean_absolute_weight": (
-            two_positive_one_negative_mean_absolute_weight
+
+        "imbalanced_triangles": (
+            imbalanced_triangles
         ),
-        "two_positive_one_negative_mean_onnela_geometric_mean": (
-            two_positive_one_negative_mean_onnela_geometric_mean
+
+        "three_negative_absolute_weight_sum": (
+            three_negative_absolute_weight_sum
+        ),
+
+        "two_positive_one_negative_absolute_weight_sum": (
+            two_positive_one_negative_absolute_weight_sum
+        ),
+
+        "imbalanced_absolute_weight_sum": (
+            imbalanced_absolute_weight_sum
+        ),
+
+        "three_negative_onnela_intensity_sum": (
+            three_negative_onnela_intensity_sum
+        ),
+
+        "two_positive_one_negative_onnela_intensity_sum": (
+            two_positive_one_negative_onnela_intensity_sum
+        ),
+
+        "imbalanced_onnela_intensity_sum": (
+            imbalanced_onnela_intensity_sum
         ),
     }
 
@@ -295,11 +277,15 @@ def analyse_graphml_folder(
     Analyse signed triangles in all GraphML files in a folder.
 
     The CSV contains:
-
-    - total triangle counts;
-    - overall average triangle weight metrics;
-    - counts and ratios for selected signed triangle types;
-    - average weight metrics for each selected signed type.
+    - total triangle count;
+    - counts and ratios of:
+        * three-negative triangles;
+        * two-positive/one-negative triangles;
+        * all imbalanced triangles;
+    - sums of absolute edge weights for each imbalanced type
+      and for all imbalanced triangles combined;
+    - sums of Onnela intensities for each imbalanced type
+      and for all imbalanced triangles combined.
 
     Returns
     -------
@@ -364,67 +350,97 @@ def analyse_graphml_folder(
                     ]
                     / total_triangles
                 )
+
+                ratio_imbalanced = (
+                    metrics["imbalanced_triangles"]
+                    / total_triangles
+                )
+
             else:
                 ratio_three_negative = 0.0
                 ratio_two_positive_one_negative = 0.0
+                ratio_imbalanced = 0.0
 
             rows.append(
                 {
                     "graph_name": graph_path.stem,
                     "file_name": graph_path.name,
+
                     "number_of_nodes": (
                         G.number_of_nodes()
                     ),
+
                     "number_of_edges": (
                         G.number_of_edges()
                     ),
+
                     "total_triangles": (
                         total_triangles
                     ),
-                    "overall_mean_absolute_weight": (
-                        metrics[
-                            "overall_mean_absolute_weight"
-                        ]
-                    ),
-                    "overall_mean_onnela_geometric_mean": (
-                        metrics[
-                            "overall_mean_onnela_geometric_mean"
-                        ]
-                    ),
+
                     "three_negative_edges": (
                         metrics[
                             "three_negative_edges"
                         ]
                     ),
+
                     "ratio_three_negative": (
                         ratio_three_negative
                     ),
-                    "three_negative_mean_absolute_weight": (
-                        metrics[
-                            "three_negative_mean_absolute_weight"
-                        ]
-                    ),
-                    "three_negative_mean_onnela_geometric_mean": (
-                        metrics[
-                            "three_negative_mean_onnela_geometric_mean"
-                        ]
-                    ),
+
                     "two_positive_one_negative": (
                         metrics[
                             "two_positive_one_negative"
                         ]
                     ),
+
                     "ratio_two_positive_one_negative": (
                         ratio_two_positive_one_negative
                     ),
-                    "two_positive_one_negative_mean_absolute_weight": (
+
+                    "imbalanced_triangles": (
                         metrics[
-                            "two_positive_one_negative_mean_absolute_weight"
+                            "imbalanced_triangles"
                         ]
                     ),
-                    "two_positive_one_negative_mean_onnela_geometric_mean": (
+
+                    "ratio_imbalanced": (
+                        ratio_imbalanced
+                    ),
+
+                    "three_negative_absolute_weight_sum": (
                         metrics[
-                            "two_positive_one_negative_mean_onnela_geometric_mean"
+                            "three_negative_absolute_weight_sum"
+                        ]
+                    ),
+
+                    "two_positive_one_negative_absolute_weight_sum": (
+                        metrics[
+                            "two_positive_one_negative_absolute_weight_sum"
+                        ]
+                    ),
+
+                    "imbalanced_absolute_weight_sum": (
+                        metrics[
+                            "imbalanced_absolute_weight_sum"
+                        ]
+                    ),
+
+                    "three_negative_onnela_intensity_sum": (
+                        metrics[
+                            "three_negative_onnela_intensity_sum"
+                        ]
+                    ),
+
+                    "two_positive_one_negative_onnela_intensity_sum": (
+                        metrics[
+                            "two_positive_one_negative_onnela_intensity_sum"
+                        ]
+                    ),
+
+                    "imbalanced_onnela_intensity_sum": (
+                        metrics[
+                            "imbalanced_onnela_intensity_sum"
                         ]
                     ),
                 }
@@ -435,6 +451,8 @@ def analyse_graphml_folder(
                 f"Failed on {graph_path.name}: {exc}"
             )
 
+        # Save after every graph so completed work is retained
+        # if processing is interrupted.
         pd.DataFrame(rows).to_csv(
             output_csv_path,
             index=False,
@@ -447,6 +465,7 @@ def analyse_graphml_folder(
         f"Processed {len(result)} of "
         f"{len(graph_paths)} graphs."
     )
+
     print(
         f"Results saved to: "
         f"{output_csv_path.resolve()}"
@@ -459,7 +478,7 @@ if __name__ == "__main__":
     analyse_graphml_folder(
         input_folder="../output/networks",
         output_csv_path=(
-            "../output/signed_triangle_counts.csv"
+            "../output/signed_triangle_counts_expanded_2.csv"
         ),
         pattern="*.graphml",
         weight_attribute="weight",
