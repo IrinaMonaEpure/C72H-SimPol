@@ -1,208 +1,88 @@
-# Project Name
+# SimPol: Simulating Polarisation
 
-Short description of the project.
+SimPol investigates how the structure of political belief systems interacts with social influence to produce population-level political polarisation in 23 different countries. This is a work in progress, currently available as a [preprint on ArXiv](https://arxiv.org/pdf/2606.27968).
 
 ---
 
 ## Repository Structure
 
-```text
+The repository is divided into two main components corresponding to the two stages of the project:
+
+```
 .
-├── abm/
-│   └── ...
-├── inference/
-│   └── ...
-├── environments/
-│   ├── abm.yml
-│   ├── inference.yml
+├── inference/         # Belief-network inference and analysis
+├── abm/                # Agent-based modelling and polarisation analysis
+├── environments/       # Conda environments for both components
 ├── README.md
 └── .gitignore
 ```
 
-This repository contains two independent workstreams:
-
-* **ABM Team** (`abm/`)
-* **Inference Team** (`inference/`)
-
-Each team maintains its own Conda environment.
-
 ---
 
-# Prerequisites
+## `inference/` — Belief-network inference
 
-Install either:
+The `inference/` directory contains the belief-network inference component of the project.
 
-* Miniconda
-* Anaconda
+It processes ESS survey data and infers country-level networks representing relationships between political beliefs. The directory contains:
 
----
+* ESS data processing and preparation;
+* correlation and partial-correlation network inference;
+* country-level belief networks;
+* network visualisation and comparison;
+* analysis of network properties, including signed triangles;
+* robustness analyses of the inferred networks.
 
-# Inference Team
+The resulting country-level belief networks provide the empirical belief structures used by the agent-based model.
 
-Code owned by the Inference team lives in:
+## `abm/` — Agent-based model
 
-```text
-inference/
+The `abm/` directory contains the agent-based modelling component of the project.
+
+The model uses the inferred belief networks to simulate how individual belief systems evolve under internal coherence pressures and social influence. This component contains:
+
+* the agent-based simulation implementation;
+* simulation runners and parameter exploration;
+* polarisation measurement;
+* analysis of belief dynamics and polarisation trajectories;
+* comparison of simulated polarisation across countries and model parameters.
+
+Together, the two components form the main analysis pipeline:
+
+```
+ESS survey data
+       ↓
+Belief-network inference
+       ↓
+Country-level belief networks
+       ↓
+Agent-based model
+       ↓
+Emergent political polarisation
 ```
 
-## Create the Environment
+## Setup
 
-```bash
+The inference and ABM components use separate Conda environments.
+
+Create the environments with:
+
+```
 conda env create -f environments/inference.yml
-```
-
-## Activate the Environment
-
-```bash
-conda activate inference
-```
-
-## Run Inference Code
-
-```bash
-python inference/main.py
-```
-
-## Update Dependencies
-
-After installing new packages:
-
-```bash
-conda env export --from-history > environments/inference.yml
-```
-
-Only include packages required by the inference codebase.
-
----
-
-# ABM Team
-
-Code owned by the ABM team lives in:
-
-```text
-abm/
-```
-
-## Create the Environment
-
-```bash
 conda env create -f environments/abm.yml
 ```
 
-## Activate the Environment
+Then activate the environment corresponding to the component you are working on:
 
-```bash
-conda activate abm
-```
+`conda activate inference`
 
-## Run ABM Code
+or:
 
-```bash
-python abm/main.py
-```
+`conda activate abm`
 
-## Update Dependencies
+To update an existing environment after changes to its environment file:
 
-After installing new packages:
+`conda env update -f environments/inference.yml --prune`
 
-```bash
-conda env export --from-history > environments/abm.yml
-```
+or:
 
-Only include packages required by the ABM codebase.
-
----
-
-# Working Across Teams
-
-If you contribute to both teams, switch environments as needed:
-
-```bash
-conda activate abm
-```
-
-or
-
-```bash
-conda activate inference
-```
-
-Each environment remains isolated, preventing dependency conflicts between the ABM and inference codebases.
-
----
-
-# Updating an Existing Environment
-
-After modifying an environment file:
-
-```bash
-conda env update -f environments/abm.yml --prune
-```
-
-or
-
-```bash
-conda env update -f environments/inference.yml --prune
-```
-
----
-
-# Deactivate the Environment
-
-```bash
-conda deactivate
-```
-
----
-
-# Example Environment File
-
-`environments/abm.yml`
-
-```yaml
-name: abm
-channels:
-  - conda-forge
-
-dependencies:
-  - python=3.12
-  - numpy
-  - pandas
-  - matplotlib
-```
-
-`environments/inference.yml`
-
-```yaml
-name: inference
-channels:
-  - conda-forge
-
-dependencies:
-  - python=3.12
-  - pytorch
-  - transformers
-  - pip
-```
-
----
-
-# .gitignore
-
-```gitignore
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
-
-.env
-.venv/
-
-.idea/
-.vscode/
-
-build/
-dist/
-*.egg-info/
-
-.DS_Store
-```
+`conda env update -f environments/abm.yml --prune`
