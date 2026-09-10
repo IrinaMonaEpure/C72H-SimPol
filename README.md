@@ -17,7 +17,7 @@ The repository is divided into two main components corresponding to the two stag
 ```
 
 
-### `inference/` — Belief Network Inference
+### 1. `inference/` — Belief Network Inference
 
 The `inference/` directory contains the belief-network inference component of the project.
 
@@ -32,7 +32,7 @@ It processes ESS survey data and infers country-level networks representing rela
 
 The resulting country-level belief networks provide the empirical belief structures used by the agent-based model.
 
-### `abm/` — Agent-Based Model
+### 2. `abm/` — Agent-Based Model
 
 The `abm/` directory contains the agent-based modelling component of the project.
 
