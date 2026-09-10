@@ -2,7 +2,6 @@
 
 SimPol investigates how the structure of political belief systems interacts with social influence to produce population-level political polarisation in 23 different countries. This is a work in progress, currently available as a [preprint on ArXiv](https://arxiv.org/pdf/2606.27968).
 
----
 
 ## Repository Structure
 
@@ -10,16 +9,15 @@ The repository is divided into two main components corresponding to the two stag
 
 ```
 .
-├── inference/         # Belief-network inference and analysis
+├── inference/          # Belief-network inference and analysis
 ├── abm/                # Agent-based modelling and polarisation analysis
 ├── environments/       # Conda environments for both components
 ├── README.md
 └── .gitignore
 ```
 
----
 
-## `inference/` — Belief-network inference
+### `inference/` — Belief Network Inference
 
 The `inference/` directory contains the belief-network inference component of the project.
 
@@ -34,7 +32,7 @@ It processes ESS survey data and infers country-level networks representing rela
 
 The resulting country-level belief networks provide the empirical belief structures used by the agent-based model.
 
-## `abm/` — Agent-based model
+### `abm/` — Agent-Based Model
 
 The `abm/` directory contains the agent-based modelling component of the project.
 
